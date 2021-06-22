@@ -55,13 +55,15 @@ func wrapCursor(jsCursor js.Value) *Cursor {
 	return &Cursor{jsCursor}
 }
 
-func (c *Cursor) Source() (_ interface{}, err error) {
+func (c *Cursor) Source() (objectStore *ObjectStore, index *Index, err error) {
 	defer exception.Catch(&err)
-	source := c.jsCursor.Get("source")
-	if source.InstanceOf(jsObjectStore) {
-		return wrapObjectStore(source), nil
+	jsSource := c.jsCursor.Get("source")
+	if jsSource.InstanceOf(jsObjectStore) {
+		objectStore = wrapObjectStore(jsSource)
+	} else if jsSource.InstanceOf(jsIDBIndex) {
+		index = wrapIndex(jsSource)
 	}
-	return wrapIndex(source), nil
+	return
 }
 
 func (c *Cursor) Direction() (_ CursorDirection, err error) {
