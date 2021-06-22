@@ -48,19 +48,22 @@ func (i *Index) Unique() (_ bool, err error) {
 	return i.jsIndex.Get("unique").Bool(), nil
 }
 
-func (i *Index) Count() (_ *Request, err error) {
+func (i *Index) Count() (_ *UintRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(i.jsIndex.Call("count")), nil
+	req := wrapRequest(i.jsIndex.Call("count"))
+	return newUintRequest(req), nil
 }
 
-func (i *Index) CountKey(key js.Value) (_ *Request, err error) {
+func (i *Index) CountKey(key js.Value) (_ *UintRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(i.jsIndex.Call("count", key)), nil
+	req := wrapRequest(i.jsIndex.Call("count", key))
+	return newUintRequest(req), nil
 }
 
-func (i *Index) CountRange(keyRange *KeyRange) (_ *Request, err error) {
+func (i *Index) CountRange(keyRange *KeyRange) (_ *UintRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(i.jsIndex.Call("count", keyRange)), nil
+	req := wrapRequest(i.jsIndex.Call("count", keyRange))
+	return newUintRequest(req), nil
 }
 
 func (i *Index) Get(key js.Value) (_ *Request, err error) {
@@ -73,37 +76,44 @@ func (i *Index) GetKey(value js.Value) (_ *Request, err error) {
 	return wrapRequest(i.jsIndex.Call("getKey", value)), nil
 }
 
-func (i *Index) GetAllKeys(query js.Value) (_ *Request, err error) {
+func (i *Index) GetAllKeys(query js.Value) (_ *ArrayRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(i.jsIndex.Call("getAllKeys", query)), nil
+	req := wrapRequest(i.jsIndex.Call("getAllKeys", query))
+	return newArrayRequest(req), nil
 }
 
-func (i *Index) OpenCursor(key js.Value, direction CursorDirection) (_ *Request, err error) {
+func (i *Index) OpenCursor(key js.Value, direction CursorDirection) (_ *CursorWithValueRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(i.jsIndex.Call("openCursor", key, direction.String())), nil
+	req := wrapRequest(i.jsIndex.Call("openCursor", key, direction.String()))
+	return newCursorWithValueRequest(req), nil
 }
 
-func (i *Index) OpenCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *Request, err error) {
+func (i *Index) OpenCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *CursorWithValueRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(i.jsIndex.Call("openCursor", keyRange, direction.String())), nil
+	req := wrapRequest(i.jsIndex.Call("openCursor", keyRange, direction.String()))
+	return newCursorWithValueRequest(req), nil
 }
 
-func (i *Index) OpenCursorAll(direction CursorDirection) (_ *Request, err error) {
+func (i *Index) OpenCursorAll(direction CursorDirection) (_ *CursorWithValueRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(i.jsIndex.Call("openCursor", nil, direction.String())), nil
+	req := wrapRequest(i.jsIndex.Call("openCursor", nil, direction.String()))
+	return newCursorWithValueRequest(req), nil
 }
 
-func (i *Index) OpenKeyCursor(key js.Value, direction CursorDirection) (_ *Request, err error) {
+func (i *Index) OpenKeyCursor(key js.Value, direction CursorDirection) (_ *CursorRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(i.jsIndex.Call("openKeyCursor", key, direction.String())), nil
+	req := wrapRequest(i.jsIndex.Call("openKeyCursor", key, direction.String()))
+	return newCursorRequest(req), nil
 }
 
-func (i *Index) OpenKeyCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *Request, err error) {
+func (i *Index) OpenKeyCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *CursorRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(i.jsIndex.Call("openKeyCursor", keyRange, direction.String())), nil
+	req := wrapRequest(i.jsIndex.Call("openKeyCursor", keyRange, direction.String()))
+	return newCursorRequest(req), nil
 }
 
-func (i *Index) OpenKeyCursorAll(direction CursorDirection) (_ *Request, err error) {
+func (i *Index) OpenKeyCursorAll(direction CursorDirection) (_ *CursorRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(i.jsIndex.Call("openKeyCursor", nil, direction.String())), nil
+	req := wrapRequest(i.jsIndex.Call("openKeyCursor", nil, direction.String()))
+	return newCursorRequest(req), nil
 }

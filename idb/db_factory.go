@@ -47,13 +47,14 @@ func (f *Factory) Open(name string, version uint, upgrader Upgrader) (_ *OpenDBR
 		args = append(args, version)
 	}
 	req := wrapRequest(f.jsFactory.Call("open", args...))
-	return wrapOpenDBRequest(req, upgrader), nil
+	return newOpenDBRequest(req, upgrader), nil
 }
 
 // DeleteDatabase requests the deletion of a database.
-func (f *Factory) DeleteDatabase(name string) (_ *Request, err error) {
+func (f *Factory) DeleteDatabase(name string) (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(f.jsFactory.Call("deleteDatabase", name)), nil
+	req := wrapRequest(f.jsFactory.Call("deleteDatabase", name))
+	return newAckRequest(req), nil
 }
 
 // CompareKeys compares two keys and returns a result indicating which one is greater in value.

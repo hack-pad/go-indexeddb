@@ -51,6 +51,10 @@ type Cursor struct {
 	jsCursor js.Value
 }
 
+func wrapCursor(jsCursor js.Value) *Cursor {
+	return &Cursor{jsCursor}
+}
+
 func (c *Cursor) Source() (_ interface{}, err error) {
 	defer exception.Catch(&err)
 	source := c.jsCursor.Get("source")
@@ -105,12 +109,26 @@ func (c *Cursor) ContinuePrimaryKey(key, primaryKey js.Value) (err error) {
 	return nil
 }
 
-func (c *Cursor) Delete() (_ *Request, err error) {
+func (c *Cursor) Delete() (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(c.jsCursor.Call("delete")), nil
+	req := wrapRequest(c.jsCursor.Call("delete"))
+	return newAckRequest(req), nil
 }
 
 func (c *Cursor) Update(value js.Value) (_ *Request, err error) {
 	defer exception.Catch(&err)
 	return wrapRequest(c.jsCursor.Call("update", value)), nil
+}
+
+type CursorWithValue struct {
+	*Cursor
+}
+
+func wrapCursorWithValue(jsCursor js.Value) *CursorWithValue {
+	return &CursorWithValue{wrapCursor(jsCursor)}
+}
+
+func (c *CursorWithValue) Value() (_ js.Value, err error) {
+	defer exception.Catch(&err)
+	return c.jsCursor.Get("value"), nil
 }

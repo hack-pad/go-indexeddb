@@ -16,12 +16,20 @@ func sliceFromStrings(strs []string) []interface{} {
 	return values
 }
 
-func stringsFromArray(arr js.Value) (_ []string, err error) {
+func stringsFromArray(arr js.Value) (strs []string, err error) {
+	defer exception.Catch(&err)
+	err = iterArray(arr, func(i int, value js.Value) bool {
+		strs = append(strs, value.String())
+		return true
+	})
+	return
+}
+
+func iterArray(arr js.Value, visit func(i int, value js.Value) (keepGoing bool)) (err error) {
 	defer exception.Catch(&err)
 	length := arr.Length()
-	strs := make([]string, length)
 	for i := 0; i < length; i++ {
-		strs[i] = arr.Index(i).String()
+		visit(i, arr.Index(i))
 	}
-	return strs, nil
+	return nil
 }

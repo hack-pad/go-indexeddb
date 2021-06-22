@@ -56,24 +56,28 @@ func (o *ObjectStore) AddKey(key, value js.Value) (_ *Request, err error) {
 	return wrapRequest(o.jsObjectStore.Call("add", value, key)), nil
 }
 
-func (o *ObjectStore) Clear() (_ *Request, err error) {
+func (o *ObjectStore) Clear() (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("clear")), nil
+	req := wrapRequest(o.jsObjectStore.Call("clear"))
+	return newAckRequest(req), nil
 }
 
-func (o *ObjectStore) Count() (_ *Request, err error) {
+func (o *ObjectStore) Count() (_ *UintRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("count")), nil
+	req := wrapRequest(o.jsObjectStore.Call("count"))
+	return newUintRequest(req), nil
 }
 
-func (o *ObjectStore) CountKey(key js.Value) (_ *Request, err error) {
+func (o *ObjectStore) CountKey(key js.Value) (_ *UintRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("count", key)), nil
+	req := wrapRequest(o.jsObjectStore.Call("count", key))
+	return newUintRequest(req), nil
 }
 
-func (o *ObjectStore) CountRange(keyRange *KeyRange) (_ *Request, err error) {
+func (o *ObjectStore) CountRange(keyRange *KeyRange) (_ *UintRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("count", keyRange)), nil
+	req := wrapRequest(o.jsObjectStore.Call("count", keyRange))
+	return newUintRequest(req), nil
 }
 
 func (o *ObjectStore) CreateIndex(name string, keyPath js.Value, options IndexOptions) (index *Index, err error) {
@@ -85,14 +89,16 @@ func (o *ObjectStore) CreateIndex(name string, keyPath js.Value, options IndexOp
 	return wrapIndex(jsIndex), nil
 }
 
-func (o *ObjectStore) Delete(key js.Value) (_ *Request, err error) {
+func (o *ObjectStore) Delete(key js.Value) (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("delete", key)), nil
+	req := wrapRequest(o.jsObjectStore.Call("delete", key))
+	return newAckRequest(req), nil
 }
 
-func (o *ObjectStore) DeleteIndex(name string) (_ *Request, err error) {
+func (o *ObjectStore) DeleteIndex(name string) (err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("deleteIndex", name)), nil
+	o.jsObjectStore.Call("deleteIndex", name)
+	return nil
 }
 
 func (o *ObjectStore) Get(key js.Value) (_ *Request, err error) {
@@ -100,9 +106,10 @@ func (o *ObjectStore) Get(key js.Value) (_ *Request, err error) {
 	return wrapRequest(o.jsObjectStore.Call("get", key)), nil
 }
 
-func (o *ObjectStore) GetAllKeys(query js.Value) (vals *Request, err error) {
+func (o *ObjectStore) GetAllKeys(query js.Value) (_ *ArrayRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("getAllKeys", query)), nil
+	req := wrapRequest(o.jsObjectStore.Call("getAllKeys", query))
+	return newArrayRequest(req), nil
 }
 
 func (o *ObjectStore) GetKey(value js.Value) (_ *Request, err error) {
@@ -126,32 +133,38 @@ func (o *ObjectStore) PutKey(key, value js.Value) (_ *Request, err error) {
 	return wrapRequest(o.jsObjectStore.Call("put", value, key)), nil
 }
 
-func (o *ObjectStore) OpenCursor(key js.Value, direction CursorDirection) (_ *Request, err error) {
+func (o *ObjectStore) OpenCursor(key js.Value, direction CursorDirection) (_ *CursorWithValueRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("openCursor", key, direction.String())), nil
+	req := wrapRequest(o.jsObjectStore.Call("openCursor", key, direction.String()))
+	return newCursorWithValueRequest(req), nil
 }
 
-func (o *ObjectStore) OpenCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *Request, err error) {
+func (o *ObjectStore) OpenCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *CursorWithValueRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("openCursor", keyRange, direction.String())), nil
+	req := wrapRequest(o.jsObjectStore.Call("openCursor", keyRange, direction.String()))
+	return newCursorWithValueRequest(req), nil
 }
 
-func (o *ObjectStore) OpenCursorAll(direction CursorDirection) (_ *Request, err error) {
+func (o *ObjectStore) OpenCursorAll(direction CursorDirection) (_ *CursorWithValueRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("openCursor", nil, direction.String())), nil
+	req := wrapRequest(o.jsObjectStore.Call("openCursor", nil, direction.String()))
+	return newCursorWithValueRequest(req), nil
 }
 
-func (o *ObjectStore) OpenKeyCursor(key js.Value, direction CursorDirection) (_ *Request, err error) {
+func (o *ObjectStore) OpenKeyCursor(key js.Value, direction CursorDirection) (_ *CursorRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("openKeyCursor", key, direction.String())), nil
+	req := wrapRequest(o.jsObjectStore.Call("openKeyCursor", key, direction.String()))
+	return newCursorRequest(req), nil
 }
 
-func (o *ObjectStore) OpenKeyCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *Request, err error) {
+func (o *ObjectStore) OpenKeyCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *CursorRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("openKeyCursor", keyRange, direction.String())), nil
+	req := wrapRequest(o.jsObjectStore.Call("openKeyCursor", keyRange, direction.String()))
+	return newCursorRequest(req), nil
 }
 
-func (o *ObjectStore) OpenKeyCursorAll(direction CursorDirection) (_ *Request, err error) {
+func (o *ObjectStore) OpenKeyCursorAll(direction CursorDirection) (_ *CursorRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("openKeyCursor", nil, direction.String())), nil
+	req := wrapRequest(o.jsObjectStore.Call("openKeyCursor", nil, direction.String()))
+	return newCursorRequest(req), nil
 }

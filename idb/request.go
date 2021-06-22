@@ -114,3 +114,131 @@ func (r *Request) Listen(success, failed func()) {
 	r.jsRequest.Call(addEventListener, "error", errFunc)
 	r.jsRequest.Call(addEventListener, "success", successFunc)
 }
+
+type UintRequest struct {
+	*Request
+}
+
+func newUintRequest(req *Request) *UintRequest {
+	return &UintRequest{req}
+}
+
+func (u *UintRequest) Result() (uint, error) {
+	result, err := u.Request.Result()
+	if err != nil {
+		return 0, err
+	}
+	return uint(result.Int()), nil
+}
+
+func (u *UintRequest) Await() (uint, error) {
+	result, err := u.Request.Await()
+	if err != nil {
+		return 0, err
+	}
+	return uint(result.Int()), nil
+}
+
+type ArrayRequest struct {
+	*Request
+}
+
+func newArrayRequest(req *Request) *ArrayRequest {
+	return &ArrayRequest{req}
+}
+
+func (a *ArrayRequest) Result() ([]js.Value, error) {
+	result, err := a.Request.Result()
+	if err != nil {
+		return nil, err
+	}
+	var values []js.Value
+	err = iterArray(result, func(i int, value js.Value) bool {
+		values = append(values, value)
+		return true
+	})
+	return values, err
+}
+
+func (a *ArrayRequest) Await() ([]js.Value, error) {
+	result, err := a.Request.Await()
+	if err != nil {
+		return nil, err
+	}
+	var values []js.Value
+	err = iterArray(result, func(i int, value js.Value) bool {
+		values = append(values, value)
+		return true
+	})
+	return values, err
+}
+
+type AckRequest struct {
+	*Request
+}
+
+func newAckRequest(req *Request) *AckRequest {
+	return &AckRequest{req}
+}
+
+func (a *AckRequest) Result() error {
+	_, err := a.Request.Result()
+	return err
+}
+
+func (a *AckRequest) Await() error {
+	_, err := a.Request.Await()
+	return err
+}
+
+type CursorRequest struct {
+	*Request
+}
+
+func newCursorRequest(req *Request) *CursorRequest {
+	return &CursorRequest{req}
+}
+
+func (c *CursorRequest) Result() (_ *Cursor, err error) {
+	defer exception.Catch(&err)
+	result, err := c.Request.Result()
+	if err != nil {
+		return nil, err
+	}
+	return wrapCursor(result), nil
+}
+
+func (c *CursorRequest) Await() (_ *Cursor, err error) {
+	defer exception.Catch(&err)
+	result, err := c.Request.Await()
+	if err != nil {
+		return nil, err
+	}
+	return wrapCursor(result), nil
+}
+
+type CursorWithValueRequest struct {
+	*Request
+}
+
+func newCursorWithValueRequest(req *Request) *CursorWithValueRequest {
+	return &CursorWithValueRequest{req}
+}
+
+func (c *CursorWithValueRequest) Result() (_ *CursorWithValue, err error) {
+	defer exception.Catch(&err)
+	result, err := c.Request.Result()
+	if err != nil {
+		return nil, err
+	}
+	return wrapCursorWithValue(result), nil
+}
+
+func (c *CursorWithValueRequest) Await() (_ *CursorWithValue, err error) {
+	defer exception.Catch(&err)
+	result, err := c.Request.Await()
+	if err != nil {
+		return nil, err
+	}
+	return wrapCursorWithValue(result), nil
+}

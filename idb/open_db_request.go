@@ -15,7 +15,7 @@ type OpenDBRequest struct {
 
 type Upgrader func(db *Database, oldVersion, newVersion uint) error
 
-func wrapOpenDBRequest(req *Request, upgrader Upgrader) *OpenDBRequest {
+func newOpenDBRequest(req *Request, upgrader Upgrader) *OpenDBRequest {
 	req.ListenSuccess(func() {
 		jsDB, err := req.Result()
 		if err != nil {
