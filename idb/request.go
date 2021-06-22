@@ -14,6 +14,8 @@ var (
 	jsIDBIndex   = js.Global().Get("IDBIndex")
 )
 
+// Request provides access to results of asynchronous requests to databases and database objects
+// using event listeners. Each reading and writing operation on a database is done using a request.
 type Request struct {
 	jsRequest js.Value
 }
@@ -25,6 +27,7 @@ func wrapRequest(jsRequest js.Value) *Request {
 	return &Request{jsRequest}
 }
 
+// Source returns the source of the request, such as an Index or an ObjectStore. If no source exists (such as when calling Factory.Open), it returns nil for both.
 func (r *Request) Source() (objectStore *ObjectStore, index *Index, err error) {
 	defer exception.Catch(&err)
 	jsSource := r.jsRequest.Get("source")
@@ -36,11 +39,13 @@ func (r *Request) Source() (objectStore *ObjectStore, index *Index, err error) {
 	return
 }
 
+// Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (r *Request) Result() (_ js.Value, err error) {
 	defer exception.Catch(&err)
 	return r.jsRequest.Get("result"), nil
 }
 
+// Err returns an error in the event of an unsuccessful request, indicating what went wrong.
 func (r *Request) Err() (err error) {
 	defer exception.Catch(&err)
 	jsErr := r.jsRequest.Get("error")
@@ -50,6 +55,7 @@ func (r *Request) Err() (err error) {
 	return nil
 }
 
+// Await waits for success or failure, then returns the results.
 func (r *Request) Await() (result js.Value, err error) {
 	done := make(chan struct{})
 	r.Listen(func() {
@@ -63,11 +69,13 @@ func (r *Request) Await() (result js.Value, err error) {
 	return
 }
 
+// ReadyState returns the state of the request. Every request starts in the pending state. The state changes to done when the request completes successfully or when an error occurs.
 func (r *Request) ReadyState() (_ string, err error) {
 	defer exception.Catch(&err)
 	return r.jsRequest.Get("readyState").String(), nil
 }
 
+// Transaction returns the transaction for the request. This can return nil for certain requests, for example those returned from Factory.Open unless an upgrade is needed. (You're just connecting to a database, so there is no transaction to return).
 func (r *Request) Transaction() (_ *Transaction, err error) {
 	defer exception.Catch(&err)
 	return r.transaction(), nil
@@ -77,14 +85,17 @@ func (r *Request) transaction() *Transaction {
 	return wrapTransaction(r.jsRequest.Get("transaction"))
 }
 
+// ListenSuccess invokes the callback when the request succeeds
 func (r *Request) ListenSuccess(success func()) {
 	r.Listen(success, nil)
 }
 
+// ListenError invokes the callback when the request fails
 func (r *Request) ListenError(failed func()) {
 	r.Listen(nil, failed)
 }
 
+// Listen invokes the success callback when the request succeeds and failed when it fails.
 func (r *Request) Listen(success, failed func()) {
 	panicHandler := func(err error) {
 		log.Println("Failed resolving request results:", err)

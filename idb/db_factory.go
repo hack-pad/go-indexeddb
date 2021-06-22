@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Factory lets applications asynchronously access the indexed databases. A typical program will call Global() to access window.indexedDB.
 type Factory struct {
 	jsFactory js.Value
 }
@@ -34,6 +35,7 @@ func Global() (*Factory, error) {
 	return global, globalErr
 }
 
+// WrapFactory wraps the given IDBFactory object
 func WrapFactory(jsFactory js.Value) (*Factory, error) {
 	return &Factory{jsFactory: jsFactory}, nil
 }
