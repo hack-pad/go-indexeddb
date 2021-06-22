@@ -11,6 +11,7 @@ import (
 
 var (
 	jsIDBRequest = js.Global().Get("IDBRequest")
+	jsIDBIndex   = js.Global().Get("IDBIndex")
 )
 
 type Request struct {
@@ -22,6 +23,17 @@ func wrapRequest(jsRequest js.Value) *Request {
 		panic("Invalid JS request type")
 	}
 	return &Request{jsRequest}
+}
+
+func (r *Request) Source() (objectStore *ObjectStore, index *Index, err error) {
+	defer exception.Catch(&err)
+	jsSource := r.jsRequest.Get("source")
+	if jsSource.InstanceOf(jsObjectStore) {
+		objectStore = wrapObjectStore(jsSource)
+	} else if jsSource.InstanceOf(jsIDBIndex) {
+		index = wrapIndex(jsSource)
+	}
+	return
 }
 
 func (r *Request) Result() (_ js.Value, err error) {
@@ -49,6 +61,16 @@ func (r *Request) Await() (result js.Value, err error) {
 	})
 	<-done
 	return
+}
+
+func (r *Request) ReadyState() (_ string, err error) {
+	defer exception.Catch(&err)
+	return r.jsRequest.Get("readyState").String(), nil
+}
+
+func (r *Request) Transaction() (_ *Transaction, err error) {
+	defer exception.Catch(&err)
+	return r.transaction(), nil
 }
 
 func (r *Request) transaction() *Transaction {

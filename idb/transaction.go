@@ -14,6 +14,11 @@ var (
 	supportsTransactionCommit = js.Global().Get("IDBTransaction").Get("prototype").Get("commit").Truthy()
 )
 
+var (
+	modeCache       jscache.Strings
+	durabilityCache jscache.Strings
+)
+
 type TransactionMode int
 
 const (
@@ -21,7 +26,14 @@ const (
 	TransactionReadWrite
 )
 
-var modeCache jscache.Strings
+func parseMode(s string) TransactionMode {
+	switch s {
+	case "readwrite":
+		return TransactionReadWrite
+	default:
+		return TransactionReadOnly
+	}
+}
 
 func (m TransactionMode) String() string {
 	switch m {
@@ -36,6 +48,40 @@ func (m TransactionMode) JSValue() js.Value {
 	return modeCache.Value(m.String())
 }
 
+type TransactionDurability int
+
+const (
+	DurabilityDefault TransactionDurability = iota
+	DurabilityRelaxed
+	DurabilityStrict
+)
+
+func parseDurability(s string) TransactionDurability {
+	switch s {
+	case "relaxed":
+		return DurabilityRelaxed
+	case "strict":
+		return DurabilityStrict
+	default:
+		return DurabilityDefault
+	}
+}
+
+func (d TransactionDurability) String() string {
+	switch d {
+	case DurabilityRelaxed:
+		return "relaxed"
+	case DurabilityStrict:
+		return "strict"
+	default:
+		return "default"
+	}
+}
+
+func (d TransactionDurability) JSValue() js.Value {
+	return durabilityCache.Value(d.String())
+}
+
 type Transaction struct {
 	jsTransaction js.Value
 	objectStores  map[string]*ObjectStore
@@ -46,6 +92,35 @@ func wrapTransaction(jsTransaction js.Value) *Transaction {
 		jsTransaction: jsTransaction,
 		objectStores:  make(map[string]*ObjectStore),
 	}
+}
+
+func (t *Transaction) Database() (_ *Database, err error) {
+	defer exception.Catch(&err)
+	return wrapDatabase(t.jsTransaction.Get("db")), nil
+}
+
+func (t *Transaction) Durability() (_ TransactionDurability, err error) {
+	defer exception.Catch(&err)
+	return parseDurability(t.jsTransaction.Get("durability").String()), nil
+}
+
+func (t *Transaction) Err() (err error) {
+	defer exception.Catch(&err)
+	jsErr := t.jsTransaction.Get("error")
+	if jsErr.Truthy() {
+		return js.Error{Value: jsErr}
+	}
+	return
+}
+
+func (t *Transaction) Mode() (_ TransactionMode, err error) {
+	defer exception.Catch(&err)
+	return parseMode(t.jsTransaction.Get("mode").String()), nil
+}
+
+func (t *Transaction) ObjectStoreNames() (_ []string, err error) {
+	defer exception.Catch(&err)
+	return stringsFromArray(t.jsTransaction.Get("objectStoreNames"))
 }
 
 func (t *Transaction) Abort() (err error) {
@@ -102,7 +177,7 @@ func (t *Transaction) prepareAwait() promise.Promise {
 		}()
 		return nil
 	})
-	t.jsTransaction.Call("addEventListener", "error", errFunc)
-	t.jsTransaction.Call("addEventListener", "complete", completeFunc)
+	t.jsTransaction.Call(addEventListener, "error", errFunc)
+	t.jsTransaction.Call(addEventListener, "complete", completeFunc)
 	return prom
 }

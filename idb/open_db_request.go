@@ -34,10 +34,7 @@ func wrapOpenDBRequest(req *Request, upgrader Upgrader) *OpenDBRequest {
 		if err != nil {
 			panic(err)
 		}
-		db, err := wrapDatabase(jsDatabase)
-		if err != nil {
-			panic(err)
-		}
+		db := wrapDatabase(jsDatabase)
 		oldVersion, newVersion := event.Get("oldVersion").Int(), event.Get("newVersion").Int()
 		if oldVersion < 0 || newVersion < 0 {
 			panic(errors.Errorf("Unexpected negative oldVersion or newVersion: %d, %d", oldVersion, newVersion))
@@ -56,7 +53,7 @@ func (o *OpenDBRequest) Result() (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	return wrapDatabase(db)
+	return wrapDatabase(db), nil
 }
 
 func (o *OpenDBRequest) Await() (*Database, error) {
@@ -64,5 +61,5 @@ func (o *OpenDBRequest) Await() (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	return wrapDatabase(db)
+	return wrapDatabase(db), nil
 }

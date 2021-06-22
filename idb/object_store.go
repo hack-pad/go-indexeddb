@@ -3,7 +3,6 @@
 package idb
 
 import (
-	"log"
 	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
@@ -22,7 +21,37 @@ func wrapObjectStore(jsObjectStore js.Value) *ObjectStore {
 	return &ObjectStore{jsObjectStore: jsObjectStore}
 }
 
-func (o *ObjectStore) Add(key, value js.Value) (_ *Request, err error) {
+func (o *ObjectStore) IndexNames() (_ []string, err error) {
+	defer exception.Catch(&err)
+	return stringsFromArray(o.jsObjectStore.Get("indexNames"))
+}
+
+func (o *ObjectStore) KeyPath() (_ js.Value, err error) {
+	defer exception.Catch(&err)
+	return o.jsObjectStore.Get("keyPath"), nil
+}
+
+func (o *ObjectStore) Name() (_ string, err error) {
+	defer exception.Catch(&err)
+	return o.jsObjectStore.Get("name").String(), nil
+}
+
+func (o *ObjectStore) Transaction() (_ *Transaction, err error) {
+	defer exception.Catch(&err)
+	return wrapTransaction(o.jsObjectStore.Get("transaction")), nil
+}
+
+func (o *ObjectStore) AutoIncrement() (_ bool, err error) {
+	defer exception.Catch(&err)
+	return o.jsObjectStore.Get("autoIncrement").Bool(), nil
+}
+
+func (o *ObjectStore) Add(value js.Value) (_ *Request, err error) {
+	defer exception.Catch(&err)
+	return wrapRequest(o.jsObjectStore.Call("add", value)), nil
+}
+
+func (o *ObjectStore) AddKey(key, value js.Value) (_ *Request, err error) {
 	defer exception.Catch(&err)
 	return wrapRequest(o.jsObjectStore.Call("add", value, key)), nil
 }
@@ -32,22 +61,19 @@ func (o *ObjectStore) Clear() (_ *Request, err error) {
 	return wrapRequest(o.jsObjectStore.Call("clear")), nil
 }
 
-func (o *ObjectStore) Count() (_ <-chan int, err error) {
+func (o *ObjectStore) Count() (_ *Request, err error) {
 	defer exception.Catch(&err)
-	count := make(chan int)
-	req := wrapRequest(o.jsObjectStore.Call("count"))
-	req.Listen(func() {
-		result, err := req.Result()
-		if err == nil {
-			count <- result.Int()
-		} else {
-			log.Println("Failed to get count result:", err)
-		}
-		close(count)
-	}, func() {
-		close(count)
-	})
-	return count, err
+	return wrapRequest(o.jsObjectStore.Call("count")), nil
+}
+
+func (o *ObjectStore) CountKey(key js.Value) (_ *Request, err error) {
+	defer exception.Catch(&err)
+	return wrapRequest(o.jsObjectStore.Call("count", key)), nil
+}
+
+func (o *ObjectStore) CountRange(keyRange *KeyRange) (_ *Request, err error) {
+	defer exception.Catch(&err)
+	return wrapRequest(o.jsObjectStore.Call("count", keyRange)), nil
 }
 
 func (o *ObjectStore) CreateIndex(name string, keyPath js.Value, options IndexOptions) (index *Index, err error) {
@@ -90,31 +116,42 @@ func (o *ObjectStore) Index(name string) (index *Index, err error) {
 	return wrapIndex(jsIndex), nil
 }
 
-func (o *ObjectStore) OpenCursor(key js.Value, direction CursorDirection) (_ <-chan *Cursor, err error) {
+func (o *ObjectStore) Put(value js.Value) (_ *Request, err error) {
 	defer exception.Catch(&err)
-	cursor := make(chan *Cursor)
-	req := wrapRequest(o.jsObjectStore.Call("openCursor", key, direction.String()))
-	req.Listen(func() {
-		result, err := req.Result()
-		if err == nil {
-			cursor <- &Cursor{jsCursor: result}
-		} else {
-			log.Println("Failed to get cursor result:", err)
-		}
-		close(cursor)
-	}, func() {
-		close(cursor)
-	})
-	return cursor, nil
+	return wrapRequest(o.jsObjectStore.Call("put", value)), nil
 }
 
-/*
-func (o *ObjectStore) OpenKeyCursor(keyRange KeyRange, direction CursorDirection) (*Cursor, error) {
-	panic("not implemented")
-}
-*/
-
-func (o *ObjectStore) Put(key, value js.Value) (_ *Request, err error) {
+func (o *ObjectStore) PutKey(key, value js.Value) (_ *Request, err error) {
 	defer exception.Catch(&err)
 	return wrapRequest(o.jsObjectStore.Call("put", value, key)), nil
+}
+
+func (o *ObjectStore) OpenCursor(key js.Value, direction CursorDirection) (_ *Request, err error) {
+	defer exception.Catch(&err)
+	return wrapRequest(o.jsObjectStore.Call("openCursor", key, direction.String())), nil
+}
+
+func (o *ObjectStore) OpenCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *Request, err error) {
+	defer exception.Catch(&err)
+	return wrapRequest(o.jsObjectStore.Call("openCursor", keyRange, direction.String())), nil
+}
+
+func (o *ObjectStore) OpenCursorAll(direction CursorDirection) (_ *Request, err error) {
+	defer exception.Catch(&err)
+	return wrapRequest(o.jsObjectStore.Call("openCursor", nil, direction.String())), nil
+}
+
+func (o *ObjectStore) OpenKeyCursor(key js.Value, direction CursorDirection) (_ *Request, err error) {
+	defer exception.Catch(&err)
+	return wrapRequest(o.jsObjectStore.Call("openKeyCursor", key, direction.String())), nil
+}
+
+func (o *ObjectStore) OpenKeyCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *Request, err error) {
+	defer exception.Catch(&err)
+	return wrapRequest(o.jsObjectStore.Call("openKeyCursor", keyRange, direction.String())), nil
+}
+
+func (o *ObjectStore) OpenKeyCursorAll(direction CursorDirection) (_ *Request, err error) {
+	defer exception.Catch(&err)
+	return wrapRequest(o.jsObjectStore.Call("openKeyCursor", nil, direction.String())), nil
 }
