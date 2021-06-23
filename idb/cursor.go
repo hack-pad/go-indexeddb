@@ -126,14 +126,14 @@ func (c *Cursor) ContinuePrimaryKey(key, primaryKey js.Value) (err error) {
 	return nil
 }
 
-// Delete returns a Request object, and, in a separate thread, deletes the record at the cursor's position, without changing the cursor's position. This can be used to delete specific records.
+// Delete returns an AckRequest, and, in a separate thread, deletes the record at the cursor's position, without changing the cursor's position. This can be used to delete specific records.
 func (c *Cursor) Delete() (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
 	req := wrapRequest(c.jsCursor.Call("delete"))
 	return newAckRequest(req), nil
 }
 
-// Update returns a Request object, and, in a separate thread, updates the value at the current position of the cursor in the object store. This can be used to update specific records.
+// Update returns a Request, and, in a separate thread, updates the value at the current position of the cursor in the object store. This can be used to update specific records.
 func (c *Cursor) Update(value js.Value) (_ *Request, err error) {
 	defer exception.Catch(&err)
 	return wrapRequest(c.jsCursor.Call("update", value)), nil

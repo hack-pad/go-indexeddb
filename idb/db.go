@@ -67,7 +67,7 @@ func (db *Database) Transaction(mode TransactionMode, objectStoreNames ...string
 	return db.TransactionWithOptions(TransactionOptions{Mode: mode}, objectStoreNames...)
 }
 
-// TransactionOptions contains all available options for creating starting a Transaction
+// TransactionOptions contains all available options for creating and starting a Transaction
 type TransactionOptions struct {
 	Mode       TransactionMode
 	Durability TransactionDurability

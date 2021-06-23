@@ -19,10 +19,13 @@ var (
 	durabilityCache jscache.Strings
 )
 
+// TransactionMode defines the mode for isolating access to data in the transaction's current object stores.
 type TransactionMode int
 
 const (
+	// TransactionReadOnly allows data to be read but not changed.
 	TransactionReadOnly TransactionMode = iota
+	// TransactionReadWrite allows reading and writing of data in existing data stores to be changed.
 	TransactionReadWrite
 )
 
@@ -82,6 +85,10 @@ func (d TransactionDurability) JSValue() js.Value {
 	return durabilityCache.Value(d.String())
 }
 
+// Transaction provides a static, asynchronous transaction on a database.
+// All reading and writing of data is done within transactions. You use Database to start transactions,
+// Transaction to set the mode of the transaction (e.g. is it TransactionReadOnly or TransactionReadWrite),
+// and you access an ObjectStore to make a request. You can also use a Transaction object to abort transactions.
 type Transaction struct {
 	jsTransaction js.Value
 	objectStores  map[string]*ObjectStore
@@ -94,16 +101,19 @@ func wrapTransaction(jsTransaction js.Value) *Transaction {
 	}
 }
 
+// Database returns the database connection with which this transaction is associated.
 func (t *Transaction) Database() (_ *Database, err error) {
 	defer exception.Catch(&err)
 	return wrapDatabase(t.jsTransaction.Get("db")), nil
 }
 
+// Durability returns the durability hint the transaction was created with.
 func (t *Transaction) Durability() (_ TransactionDurability, err error) {
 	defer exception.Catch(&err)
 	return parseDurability(t.jsTransaction.Get("durability").String()), nil
 }
 
+// Err returns an error indicating the type of error that occurred when there is an unsuccessful transaction. Returns nil if the transaction is not finished, is finished and successfully committed, or was aborted with Transaction.Abort().
 func (t *Transaction) Err() (err error) {
 	defer exception.Catch(&err)
 	jsErr := t.jsTransaction.Get("error")
@@ -113,22 +123,26 @@ func (t *Transaction) Err() (err error) {
 	return
 }
 
+// Mode returns the mode for isolating access to data in the object stores that are in the scope of the transaction. The default value is TransactionReadOnly.
 func (t *Transaction) Mode() (_ TransactionMode, err error) {
 	defer exception.Catch(&err)
 	return parseMode(t.jsTransaction.Get("mode").String()), nil
 }
 
+// ObjectStoreNames returns a list of the names of ObjectStores associated with the transaction.
 func (t *Transaction) ObjectStoreNames() (_ []string, err error) {
 	defer exception.Catch(&err)
 	return stringsFromArray(t.jsTransaction.Get("objectStoreNames"))
 }
 
+// Abort rolls back all the changes to objects in the database associated with this transaction.
 func (t *Transaction) Abort() (err error) {
 	defer exception.Catch(&err)
 	t.jsTransaction.Call("abort")
 	return nil
 }
 
+// ObjectStore returns an ObjectStore representing an object store that is part of the scope of this transaction.
 func (t *Transaction) ObjectStore(name string) (_ *ObjectStore, err error) {
 	if store, ok := t.objectStores[name]; ok {
 		return store, nil
@@ -140,6 +154,7 @@ func (t *Transaction) ObjectStore(name string) (_ *ObjectStore, err error) {
 	return store, nil
 }
 
+// Commit for an active transaction, commits the transaction. Note that this doesn't normally have to be called — a transaction will automatically commit when all outstanding requests have been satisfied and no new requests have been made. Commit() can be used to start the commit process without waiting for events from outstanding requests to be dispatched.
 func (t *Transaction) Commit() (err error) {
 	if !supportsTransactionCommit {
 		return nil
@@ -150,6 +165,7 @@ func (t *Transaction) Commit() (err error) {
 	return nil
 }
 
+// Await waits for success or failure, then returns the results.
 func (t *Transaction) Await() error {
 	_, err := t.prepareAwait().Await()
 	return err

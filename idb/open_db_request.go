@@ -9,10 +9,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+// OpenDBRequest provides access to the results of requests to open or delete databases (performed using Factory.open and Factory.DeleteDatabase).
 type OpenDBRequest struct {
 	*Request
 }
 
+// Upgrader is a function that can upgrade the given database from an old version to a new one.
 type Upgrader func(db *Database, oldVersion, newVersion uint) error
 
 func newOpenDBRequest(req *Request, upgrader Upgrader) *OpenDBRequest {
