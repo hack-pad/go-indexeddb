@@ -6,10 +6,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Chan is a Go channel-based promise
 type Chan struct {
 	resolveChan, rejectChan <-chan interface{}
 }
 
+// NewChan creates a new Chan
 func NewChan() (resolve, reject Resolver, promise Chan) {
 	resolveChan, rejectChan := make(chan interface{}, 1), make(chan interface{}, 1)
 	var c Chan
@@ -28,6 +30,7 @@ func NewChan() (resolve, reject Resolver, promise Chan) {
 	return resolve, reject, c
 }
 
+// Then implements Promise
 func (c Chan) Then(fn func(value interface{}) interface{}) Promise {
 	// TODO support failing a Then call
 	resolve, _, prom := NewChan()
@@ -41,6 +44,7 @@ func (c Chan) Then(fn func(value interface{}) interface{}) Promise {
 	return prom
 }
 
+// Catch implements Promise
 func (c Chan) Catch(fn func(rejectedReason interface{}) interface{}) Promise {
 	_, reject, prom := NewChan()
 	go func() {
@@ -53,6 +57,7 @@ func (c Chan) Catch(fn func(rejectedReason interface{}) interface{}) Promise {
 	return prom
 }
 
+// Await implements Promise
 func (c Chan) Await() (interface{}, error) {
 	// TODO support error handling inside promise functions instead
 	value := <-c.resolveChan

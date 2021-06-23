@@ -50,6 +50,7 @@ func newOpenDBRequest(req *Request, upgrader Upgrader) *OpenDBRequest {
 	return &OpenDBRequest{req}
 }
 
+// Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (o *OpenDBRequest) Result() (*Database, error) {
 	db, err := o.Request.Result()
 	if err != nil {
@@ -58,6 +59,7 @@ func (o *OpenDBRequest) Result() (*Database, error) {
 	return wrapDatabase(db), nil
 }
 
+// Await waits for success or failure, then returns the results.
 func (o *OpenDBRequest) Await() (*Database, error) {
 	db, err := o.Request.Await()
 	if err != nil {

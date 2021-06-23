@@ -27,7 +27,7 @@ func Global() (*Factory, error) {
 	globalOnce.Do(func() {
 		jsFactory := js.Global().Get("indexedDB")
 		if !jsFactory.Truthy() {
-			globalErr = errors.New("Global JS variable 'indexedDB' is not defined.")
+			globalErr = errors.New("Global JS variable 'indexedDB' is not defined")
 		} else {
 			global, globalErr = WrapFactory(jsFactory)
 		}

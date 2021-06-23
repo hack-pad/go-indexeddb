@@ -8,6 +8,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Catch recovers from panics and attempts to convert the value into an error.
+// Must be used directly in a defer statement, can not be called elsewhere.
+// Set 'err' to the address of the return value, typically with a named return error value.
+// Example: defer exception.Catch(&err)
 func Catch(err *error) {
 	recoverErr := handleRecovery(recover())
 	if recoverErr != nil {
@@ -15,6 +19,7 @@ func Catch(err *error) {
 	}
 }
 
+// CatchHandler is the same as Catch, but enables custom error handling after recovering.
 func CatchHandler(fn func(err error)) {
 	err := handleRecovery(recover())
 	if err != nil {

@@ -126,6 +126,7 @@ func (r *Request) Listen(success, failed func()) {
 	r.jsRequest.Call(addEventListener, "success", successFunc)
 }
 
+// UintRequest is a Request that retrieves a uint result
 type UintRequest struct {
 	*Request
 }
@@ -134,6 +135,7 @@ func newUintRequest(req *Request) *UintRequest {
 	return &UintRequest{req}
 }
 
+// Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (u *UintRequest) Result() (uint, error) {
 	result, err := u.Request.Result()
 	if err != nil {
@@ -142,6 +144,7 @@ func (u *UintRequest) Result() (uint, error) {
 	return uint(result.Int()), nil
 }
 
+// Await waits for success or failure, then returns the results.
 func (u *UintRequest) Await() (uint, error) {
 	result, err := u.Request.Await()
 	if err != nil {
@@ -150,6 +153,7 @@ func (u *UintRequest) Await() (uint, error) {
 	return uint(result.Int()), nil
 }
 
+// ArrayRequest is a Request that retrieves an array of js.Values
 type ArrayRequest struct {
 	*Request
 }
@@ -158,6 +162,7 @@ func newArrayRequest(req *Request) *ArrayRequest {
 	return &ArrayRequest{req}
 }
 
+// Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (a *ArrayRequest) Result() ([]js.Value, error) {
 	result, err := a.Request.Result()
 	if err != nil {
@@ -171,6 +176,7 @@ func (a *ArrayRequest) Result() ([]js.Value, error) {
 	return values, err
 }
 
+// Await waits for success or failure, then returns the results.
 func (a *ArrayRequest) Await() ([]js.Value, error) {
 	result, err := a.Request.Await()
 	if err != nil {
@@ -184,6 +190,7 @@ func (a *ArrayRequest) Await() ([]js.Value, error) {
 	return values, err
 }
 
+// AckRequest is a Request that doesn't retrieve a value, only used to detect errors.
 type AckRequest struct {
 	*Request
 }
@@ -192,16 +199,16 @@ func newAckRequest(req *Request) *AckRequest {
 	return &AckRequest{req}
 }
 
-func (a *AckRequest) Result() error {
-	_, err := a.Request.Result()
-	return err
-}
+// Result is a no-op. This kind of request does not retrieve any data in the result.
+func (a *AckRequest) Result() {} // no-op
 
+// Await waits for success or failure, then returns the results.
 func (a *AckRequest) Await() error {
 	_, err := a.Request.Await()
 	return err
 }
 
+// CursorRequest is a Request that retrieves a Cursor
 type CursorRequest struct {
 	*Request
 }
@@ -210,6 +217,7 @@ func newCursorRequest(req *Request) *CursorRequest {
 	return &CursorRequest{req}
 }
 
+// Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (c *CursorRequest) Result() (_ *Cursor, err error) {
 	defer exception.Catch(&err)
 	result, err := c.Request.Result()
@@ -219,6 +227,7 @@ func (c *CursorRequest) Result() (_ *Cursor, err error) {
 	return wrapCursor(result), nil
 }
 
+// Await waits for success or failure, then returns the results.
 func (c *CursorRequest) Await() (_ *Cursor, err error) {
 	defer exception.Catch(&err)
 	result, err := c.Request.Await()
@@ -228,6 +237,7 @@ func (c *CursorRequest) Await() (_ *Cursor, err error) {
 	return wrapCursor(result), nil
 }
 
+// CursorWithValueRequest is a Request that retrieves a CursorWithValue
 type CursorWithValueRequest struct {
 	*Request
 }
@@ -236,6 +246,7 @@ func newCursorWithValueRequest(req *Request) *CursorWithValueRequest {
 	return &CursorWithValueRequest{req}
 }
 
+// Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (c *CursorWithValueRequest) Result() (_ *CursorWithValue, err error) {
 	defer exception.Catch(&err)
 	result, err := c.Request.Result()
@@ -245,6 +256,7 @@ func (c *CursorWithValueRequest) Result() (_ *CursorWithValue, err error) {
 	return wrapCursorWithValue(result), nil
 }
 
+// Await waits for success or failure, then returns the results.
 func (c *CursorWithValueRequest) Await() (_ *CursorWithValue, err error) {
 	defer exception.Catch(&err)
 	result, err := c.Request.Await()
