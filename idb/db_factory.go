@@ -3,11 +3,11 @@
 package idb
 
 import (
+	"errors"
 	"sync"
 	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
-	"github.com/pkg/errors"
 )
 
 // Factory lets applications asynchronously access the indexed databases. A typical program will call Global() to access window.indexedDB.

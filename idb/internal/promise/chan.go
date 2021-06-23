@@ -2,9 +2,7 @@
 
 package promise
 
-import (
-	"github.com/pkg/errors"
-)
+import "fmt"
 
 // Chan is a Go channel-based promise
 type Chan struct {
@@ -67,6 +65,6 @@ func (c Chan) Await() (interface{}, error) {
 	case error:
 		return value, err
 	default:
-		return value, errors.Errorf("%v", err)
+		return value, fmt.Errorf("%v", err)
 	}
 }

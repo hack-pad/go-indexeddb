@@ -3,9 +3,8 @@
 package exception
 
 import (
+	"fmt"
 	"syscall/js"
-
-	"github.com/pkg/errors"
 )
 
 // Catch recovers from panics and attempts to convert the value into an error.
@@ -37,6 +36,6 @@ func handleRecovery(r interface{}) error {
 	case js.Value:
 		return js.Error{Value: val}
 	default:
-		return errors.Errorf("%+v", val)
+		return fmt.Errorf("%+v", val)
 	}
 }

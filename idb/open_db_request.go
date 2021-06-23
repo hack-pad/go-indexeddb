@@ -3,10 +3,9 @@
 package idb
 
 import (
+	"fmt"
 	"log"
 	"syscall/js"
-
-	"github.com/pkg/errors"
 )
 
 // OpenDBRequest provides access to the results of requests to open or delete databases (performed using Factory.open and Factory.DeleteDatabase).
@@ -39,7 +38,7 @@ func newOpenDBRequest(req *Request, upgrader Upgrader) *OpenDBRequest {
 		db := wrapDatabase(jsDatabase)
 		oldVersion, newVersion := event.Get("oldVersion").Int(), event.Get("newVersion").Int()
 		if oldVersion < 0 || newVersion < 0 {
-			panic(errors.Errorf("Unexpected negative oldVersion or newVersion: %d, %d", oldVersion, newVersion))
+			panic(fmt.Errorf("Unexpected negative oldVersion or newVersion: %d, %d", oldVersion, newVersion))
 		}
 		err = upgrader(db, uint(oldVersion), uint(newVersion))
 		if err != nil {
