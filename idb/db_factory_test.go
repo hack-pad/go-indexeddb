@@ -133,3 +133,18 @@ func TestFactoryDeleteDatabase(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func TestFactoryCompareKeys(t *testing.T) {
+	t.Run("normal keys", func(t *testing.T) {
+		dbFactory := testFactory(t)
+		compare, err := dbFactory.CompareKeys(js.ValueOf("a"), js.ValueOf("b"))
+		assert.NoError(t, err)
+		assert.Equal(t, -1, compare)
+	})
+
+	t.Run("bad keys", func(t *testing.T) {
+		dbFactory := testFactory(t)
+		_, err := dbFactory.CompareKeys(js.ValueOf(map[string]interface{}{"a": "a"}), js.ValueOf("b"))
+		assert.Error(t, err)
+	})
+}
