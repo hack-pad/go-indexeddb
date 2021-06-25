@@ -22,7 +22,7 @@ func testDB(tb testing.TB, initFunc func(*Database)) *Database {
 
 	n, err := rand.Int(rand.Reader, big.NewInt(1000))
 	assert.NoError(tb, err)
-	name := fmt.Sprintf("%s/%d", tb.Name(), n.Int64())
+	name := fmt.Sprintf("%s%s/%d", testDBPrefix, tb.Name(), n.Int64())
 	req, err := dbFactory.Open(context.Background(), name, 0, func(db *Database, oldVersion, newVersion uint) error {
 		initFunc(db)
 		return nil

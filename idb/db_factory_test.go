@@ -4,11 +4,14 @@ package idb
 
 import (
 	"context"
+	"strings"
 	"syscall/js"
 	"testing"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/assert"
 )
+
+const testDBPrefix = "go-indexeddb-test-"
 
 func TestGlobal(t *testing.T) {
 	t.Parallel()
@@ -27,9 +30,11 @@ func testFactory(tb testing.TB) *Factory {
 		databaseNames := testGetDatabases(tb, dbFactory)
 		var requests []*AckRequest
 		for _, name := range databaseNames {
-			req, err := dbFactory.DeleteDatabase(name)
-			assert.NoError(tb, err)
-			requests = append(requests, req)
+			if strings.HasPrefix(name, testDBPrefix) {
+				req, err := dbFactory.DeleteDatabase(name)
+				assert.NoError(tb, err)
+				requests = append(requests, req)
+			}
 		}
 		for _, req := range requests {
 			assert.NoError(tb, req.Await(context.Background()))
@@ -60,7 +65,7 @@ func testGetDatabases(tb testing.TB, dbFactory *Factory) []string {
 
 func TestFactoryOpenNewDB(t *testing.T) { // nolint:paralleltest // Deletes all databases, should not run in parallel.
 	dbFactory := testFactory(t)
-	req, err := dbFactory.Open(context.Background(), "mydb", 0, func(db *Database, oldVersion, newVersion uint) error {
+	req, err := dbFactory.Open(context.Background(), testDBPrefix+"mydb", 0, func(db *Database, oldVersion, newVersion uint) error {
 		assert.Equal(t, uint(0), oldVersion)
 		assert.Equal(t, uint(1), newVersion)
 		return nil
@@ -76,14 +81,14 @@ func TestFactoryOpenNewDB(t *testing.T) { // nolint:paralleltest // Deletes all 
 
 func TestFactoryOpenExistingDB(t *testing.T) { // nolint:paralleltest // Deletes all databases, should not run in parallel.
 	dbFactory := testFactory(t)
-	_, err := dbFactory.Open(context.Background(), "mydb", 1, func(db *Database, oldVersion, newVersion uint) error {
+	_, err := dbFactory.Open(context.Background(), testDBPrefix+"mydb", 1, func(db *Database, oldVersion, newVersion uint) error {
 		return nil
 	})
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
 
-	req, err := dbFactory.Open(context.Background(), "mydb", 1, func(db *Database, oldVersion, newVersion uint) error {
+	req, err := dbFactory.Open(context.Background(), testDBPrefix+"mydb", 1, func(db *Database, oldVersion, newVersion uint) error {
 		t.Error("Should not call upgrade")
 		return nil
 	})
@@ -108,7 +113,7 @@ func TestFactoryDeleteDatabase(t *testing.T) { // nolint:paralleltest // Deletes
 	dbFactory := testFactory(t)
 	var db *Database
 	{
-		req, err := dbFactory.Open(context.Background(), "mydb", 0, func(db *Database, oldVersion, newVersion uint) error {
+		req, err := dbFactory.Open(context.Background(), testDBPrefix+"mydb", 0, func(db *Database, oldVersion, newVersion uint) error {
 			_, err := db.CreateObjectStore("mystore", ObjectStoreOptions{})
 			assert.NoError(t, err)
 			return nil
@@ -124,7 +129,7 @@ func TestFactoryDeleteDatabase(t *testing.T) { // nolint:paralleltest // Deletes
 		}
 	}
 
-	req, err := dbFactory.DeleteDatabase("mydb")
+	req, err := dbFactory.DeleteDatabase(testDBPrefix + "mydb")
 	assert.NoError(t, err)
 	err = req.Await(context.Background())
 	assert.NoError(t, err)
