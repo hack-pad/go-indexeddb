@@ -179,31 +179,15 @@ func (t *Transaction) Await(ctx context.Context) error {
 }
 
 func (t *Transaction) prepareAwait(ctx context.Context) promise.Promise {
-	ctx, cancel := context.WithCancel(ctx)
-	resolve, reject, prom := promise.NewChan()
-	complete := false
+	resolve, reject, prom := promise.NewChan(ctx)
 
 	var errFunc, completeFunc js.Func
 	errFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		err := t.Err()
-		_ = t.Abort()
-		go func() {
-			defer cancel()
-			if !complete {
-				complete = true
-				reject(err)
-			}
-		}()
+		go reject(t.Err())
 		return nil
 	})
 	completeFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		go func() {
-			defer cancel()
-			if !complete {
-				complete = true
-				resolve(nil)
-			}
-		}()
+		go resolve(nil)
 		return nil
 	})
 	t.jsTransaction.Call(addEventListener, "error", errFunc)
@@ -211,11 +195,6 @@ func (t *Transaction) prepareAwait(ctx context.Context) promise.Promise {
 
 	go func() {
 		<-ctx.Done()
-		if !complete {
-			complete = true
-			_ = t.Abort()
-			reject(ctx.Err())
-		}
 		t.jsTransaction.Call(removeEventListener, "error", errFunc)
 		t.jsTransaction.Call(removeEventListener, "complete", completeFunc)
 		errFunc.Release()
