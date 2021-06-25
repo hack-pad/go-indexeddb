@@ -3,6 +3,7 @@
 package idb
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"syscall/js"
@@ -41,7 +42,7 @@ func WrapFactory(jsFactory js.Value) (*Factory, error) {
 }
 
 // Open requests to open a connection to a database.
-func (f *Factory) Open(name string, version uint, upgrader Upgrader) (_ *OpenDBRequest, err error) {
+func (f *Factory) Open(upgradeCtx context.Context, name string, version uint, upgrader Upgrader) (_ *OpenDBRequest, err error) {
 	defer exception.Catch(&err)
 
 	args := []interface{}{name}
@@ -49,7 +50,7 @@ func (f *Factory) Open(name string, version uint, upgrader Upgrader) (_ *OpenDBR
 		args = append(args, version)
 	}
 	req := wrapRequest(f.jsFactory.Call("open", args...))
-	return newOpenDBRequest(req, upgrader), nil
+	return newOpenDBRequest(upgradeCtx, req, upgrader), nil
 }
 
 // DeleteDatabase requests the deletion of a database.

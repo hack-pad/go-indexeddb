@@ -3,5 +3,6 @@
 package idb
 
 const (
-	addEventListener = "addEventListener"
+	addEventListener    = "addEventListener"
+	removeEventListener = "removeEventListener"
 )

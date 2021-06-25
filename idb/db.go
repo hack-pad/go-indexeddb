@@ -38,13 +38,10 @@ func (db *Database) ObjectStoreNames() (_ []string, err error) {
 // CreateObjectStore creates and returns a new object store or index.
 func (db *Database) CreateObjectStore(name string, options ObjectStoreOptions) (_ *ObjectStore, err error) {
 	defer exception.Catch(&err)
-	jsOptions := map[string]interface{}{
+	jsObjectStore := db.jsDB.Call("createObjectStore", name, map[string]interface{}{
 		"autoIncrement": options.AutoIncrement,
-	}
-	if options.KeyPath != "" {
-		jsOptions["keyPath"] = options.KeyPath
-	}
-	jsObjectStore := db.jsDB.Call("createObjectStore", name, jsOptions)
+		"keyPath":       options.KeyPath,
+	})
 	return wrapObjectStore(jsObjectStore), nil
 }
 

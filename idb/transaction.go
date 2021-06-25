@@ -3,6 +3,7 @@
 package idb
 
 import (
+	"context"
 	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
@@ -129,6 +130,13 @@ func (t *Transaction) Err() (err error) {
 	return
 }
 
+// Abort rolls back all the changes to objects in the database associated with this transaction.
+func (t *Transaction) Abort() (err error) {
+	defer exception.Catch(&err)
+	t.jsTransaction.Call("abort")
+	return nil
+}
+
 // Mode returns the mode for isolating access to data in the object stores that are in the scope of the transaction. The default value is TransactionReadOnly.
 func (t *Transaction) Mode() (_ TransactionMode, err error) {
 	defer exception.Catch(&err)
@@ -139,13 +147,6 @@ func (t *Transaction) Mode() (_ TransactionMode, err error) {
 func (t *Transaction) ObjectStoreNames() (_ []string, err error) {
 	defer exception.Catch(&err)
 	return stringsFromArray(t.jsTransaction.Get("objectStoreNames"))
-}
-
-// Abort rolls back all the changes to objects in the database associated with this transaction.
-func (t *Transaction) Abort() (err error) {
-	defer exception.Catch(&err)
-	t.jsTransaction.Call("abort")
-	return nil
 }
 
 // ObjectStore returns an ObjectStore representing an object store that is part of the scope of this transaction.
@@ -172,34 +173,53 @@ func (t *Transaction) Commit() (err error) {
 }
 
 // Await waits for success or failure, then returns the results.
-func (t *Transaction) Await() error {
-	_, err := t.prepareAwait().Await()
+func (t *Transaction) Await(ctx context.Context) error {
+	_, err := t.prepareAwait(ctx).Await()
 	return err
 }
 
-func (t *Transaction) prepareAwait() promise.Promise {
+func (t *Transaction) prepareAwait(ctx context.Context) promise.Promise {
+	ctx, cancel := context.WithCancel(ctx)
 	resolve, reject, prom := promise.NewChan()
+	complete := false
 
 	var errFunc, completeFunc js.Func
 	errFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		err := t.jsTransaction.Get("error")
-		t.jsTransaction.Call("abort")
+		err := t.Err()
+		_ = t.Abort()
 		go func() {
-			errFunc.Release()
-			completeFunc.Release()
-			reject(err)
+			defer cancel()
+			if !complete {
+				complete = true
+				reject(err)
+			}
 		}()
 		return nil
 	})
 	completeFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go func() {
-			errFunc.Release()
-			completeFunc.Release()
-			resolve(nil)
+			defer cancel()
+			if !complete {
+				complete = true
+				resolve(nil)
+			}
 		}()
 		return nil
 	})
 	t.jsTransaction.Call(addEventListener, "error", errFunc)
 	t.jsTransaction.Call(addEventListener, "complete", completeFunc)
+
+	go func() {
+		<-ctx.Done()
+		if !complete {
+			complete = true
+			_ = t.Abort()
+			reject(ctx.Err())
+		}
+		t.jsTransaction.Call(removeEventListener, "error", errFunc)
+		t.jsTransaction.Call(removeEventListener, "complete", completeFunc)
+		errFunc.Release()
+		completeFunc.Release()
+	}()
 	return prom
 }

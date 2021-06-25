@@ -3,6 +3,7 @@
 package idb
 
 import (
+	"context"
 	"log"
 	"syscall/js"
 
@@ -56,9 +57,9 @@ func (r *Request) Err() (err error) {
 }
 
 // Await waits for success or failure, then returns the results.
-func (r *Request) Await() (result js.Value, err error) {
+func (r *Request) Await(ctx context.Context) (result js.Value, err error) {
 	done := make(chan struct{})
-	r.Listen(func() {
+	r.Listen(ctx, func() {
 		result, err = r.Result()
 		close(done)
 	}, func() {
@@ -86,28 +87,28 @@ func (r *Request) transaction() *Transaction {
 }
 
 // ListenSuccess invokes the callback when the request succeeds
-func (r *Request) ListenSuccess(success func()) {
-	r.Listen(success, nil)
+func (r *Request) ListenSuccess(ctx context.Context, success func()) {
+	r.Listen(ctx, success, nil)
 }
 
 // ListenError invokes the callback when the request fails
-func (r *Request) ListenError(failed func()) {
-	r.Listen(nil, failed)
+func (r *Request) ListenError(ctx context.Context, failed func()) {
+	r.Listen(ctx, nil, failed)
 }
 
 // Listen invokes the success callback when the request succeeds and failed when it fails.
-func (r *Request) Listen(success, failed func()) {
+func (r *Request) Listen(ctx context.Context, success, failed func()) {
+	ctx, cancel := context.WithCancel(ctx)
 	panicHandler := func(err error) {
 		log.Println("Failed resolving request results:", err)
 		_ = r.transaction().Abort()
+		cancel()
 	}
 
 	var errFunc, successFunc js.Func
 	// setting up both is required to ensure boath are always released
 	errFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		defer exception.CatchHandler(panicHandler)
-		errFunc.Release()
-		successFunc.Release()
 		if failed != nil {
 			failed()
 		}
@@ -115,8 +116,6 @@ func (r *Request) Listen(success, failed func()) {
 	})
 	successFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		defer exception.CatchHandler(panicHandler)
-		errFunc.Release()
-		successFunc.Release()
 		if success != nil {
 			success()
 		}
@@ -124,6 +123,13 @@ func (r *Request) Listen(success, failed func()) {
 	})
 	r.jsRequest.Call(addEventListener, "error", errFunc)
 	r.jsRequest.Call(addEventListener, "success", successFunc)
+	go func() {
+		<-ctx.Done()
+		r.jsRequest.Call(removeEventListener, "error", errFunc)
+		r.jsRequest.Call(removeEventListener, "success", successFunc)
+		errFunc.Release()
+		successFunc.Release()
+	}()
 }
 
 // UintRequest is a Request that retrieves a uint result
@@ -145,8 +151,8 @@ func (u *UintRequest) Result() (uint, error) {
 }
 
 // Await waits for success or failure, then returns the results.
-func (u *UintRequest) Await() (uint, error) {
-	result, err := u.Request.Await()
+func (u *UintRequest) Await(ctx context.Context) (uint, error) {
+	result, err := u.Request.Await(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -177,8 +183,8 @@ func (a *ArrayRequest) Result() ([]js.Value, error) {
 }
 
 // Await waits for success or failure, then returns the results.
-func (a *ArrayRequest) Await() ([]js.Value, error) {
-	result, err := a.Request.Await()
+func (a *ArrayRequest) Await(ctx context.Context) ([]js.Value, error) {
+	result, err := a.Request.Await(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -203,8 +209,8 @@ func newAckRequest(req *Request) *AckRequest {
 func (a *AckRequest) Result() {} // no-op
 
 // Await waits for success or failure, then returns the results.
-func (a *AckRequest) Await() error {
-	_, err := a.Request.Await()
+func (a *AckRequest) Await(ctx context.Context) error {
+	_, err := a.Request.Await(ctx)
 	return err
 }
 
@@ -215,6 +221,35 @@ type CursorRequest struct {
 
 func newCursorRequest(req *Request) *CursorRequest {
 	return &CursorRequest{req}
+}
+
+// Iter invokes the callback when the request succeeds for each cursor iteration
+func (c *CursorRequest) Iter(ctx context.Context, iter func(*Cursor) error) error {
+	ctx, cancel := context.WithCancel(ctx)
+	var returnErr error
+	c.Listen(ctx, func() {
+		cursor, err := c.Result()
+		if err != nil {
+			returnErr = err
+			cancel()
+			return
+		}
+		if cursor.jsCursor.IsNull() {
+			cancel()
+			return
+		}
+		err = iter(cursor)
+		if err != nil {
+			returnErr = err
+			cancel()
+			return
+		}
+	}, func() {
+		returnErr = c.Err()
+		cancel()
+	})
+	<-ctx.Done()
+	return returnErr
 }
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
@@ -228,9 +263,9 @@ func (c *CursorRequest) Result() (_ *Cursor, err error) {
 }
 
 // Await waits for success or failure, then returns the results.
-func (c *CursorRequest) Await() (_ *Cursor, err error) {
+func (c *CursorRequest) Await(ctx context.Context) (_ *Cursor, err error) {
 	defer exception.Catch(&err)
-	result, err := c.Request.Await()
+	result, err := c.Request.Await(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -246,6 +281,35 @@ func newCursorWithValueRequest(req *Request) *CursorWithValueRequest {
 	return &CursorWithValueRequest{req}
 }
 
+// Iter invokes the callback when the request succeeds for each cursor iteration
+func (c *CursorWithValueRequest) Iter(ctx context.Context, iter func(*CursorWithValue) error) error {
+	ctx, cancel := context.WithCancel(ctx)
+	var returnErr error
+	c.Listen(ctx, func() {
+		cursor, err := c.Result()
+		if err != nil {
+			returnErr = err
+			cancel()
+			return
+		}
+		if cursor.jsCursor.IsNull() {
+			cancel()
+			return
+		}
+		err = iter(cursor)
+		if err != nil {
+			returnErr = err
+			cancel()
+			return
+		}
+	}, func() {
+		returnErr = c.Err()
+		cancel()
+	})
+	<-ctx.Done()
+	return returnErr
+}
+
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (c *CursorWithValueRequest) Result() (_ *CursorWithValue, err error) {
 	defer exception.Catch(&err)
@@ -257,9 +321,9 @@ func (c *CursorWithValueRequest) Result() (_ *CursorWithValue, err error) {
 }
 
 // Await waits for success or failure, then returns the results.
-func (c *CursorWithValueRequest) Await() (_ *CursorWithValue, err error) {
+func (c *CursorWithValueRequest) Await(ctx context.Context) (_ *CursorWithValue, err error) {
 	defer exception.Catch(&err)
-	result, err := c.Request.Await()
+	result, err := c.Request.Await(ctx)
 	if err != nil {
 		return nil, err
 	}

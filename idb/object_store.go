@@ -10,7 +10,7 @@ import (
 
 // ObjectStoreOptions contains all available options for creating an ObjectStore
 type ObjectStoreOptions struct {
-	KeyPath       string
+	KeyPath       js.Value
 	AutoIncrement bool
 }
 
@@ -53,16 +53,18 @@ func (o *ObjectStore) AutoIncrement() (_ bool, err error) {
 	return o.jsObjectStore.Get("autoIncrement").Bool(), nil
 }
 
-// Add returns a Request, and, in a separate thread, creates a structured clone of the value, and stores the cloned value in the object store. This is for adding new records to an object store.
-func (o *ObjectStore) Add(value js.Value) (_ *Request, err error) {
+// Add returns an AckRequest, and, in a separate thread, creates a structured clone of the value, and stores the cloned value in the object store. This is for adding new records to an object store.
+func (o *ObjectStore) Add(value js.Value) (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("add", value)), nil
+	req := wrapRequest(o.jsObjectStore.Call("add", value))
+	return newAckRequest(req), nil
 }
 
 // AddKey is the same as Add, but includes the key to use to identify the record.
-func (o *ObjectStore) AddKey(key, value js.Value) (_ *Request, err error) {
+func (o *ObjectStore) AddKey(key, value js.Value) (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("add", value, key)), nil
+	req := wrapRequest(o.jsObjectStore.Call("add", value, key))
+	return newAckRequest(req), nil
 }
 
 // Clear returns an AckRequest, then clears this object store in a separate thread. This is for deleting all current records out of an object store.
@@ -117,12 +119,6 @@ func (o *ObjectStore) DeleteIndex(name string) (err error) {
 	return nil
 }
 
-// Get returns a Request, and, in a separate thread, returns the store object store selected by the specified key. This is for retrieving specific records from an object store.
-func (o *ObjectStore) Get(key js.Value) (_ *Request, err error) {
-	defer exception.Catch(&err)
-	return wrapRequest(o.jsObjectStore.Call("get", key)), nil
-}
-
 // GetAllKeys returns an ArrayRequest that retrieves record keys for all objects in the object store.
 func (o *ObjectStore) GetAllKeys() (_ *ArrayRequest, err error) {
 	defer exception.Catch(&err)
@@ -130,8 +126,8 @@ func (o *ObjectStore) GetAllKeys() (_ *ArrayRequest, err error) {
 	return newArrayRequest(req), nil
 }
 
-// GetAllKeysQuery returns an ArrayRequest that retrieves record keys for all objects in the object store matching the specified query. If maxCount is 0, retrieves all objects matching the query.
-func (o *ObjectStore) GetAllKeysQuery(query js.Value, maxCount uint) (_ *ArrayRequest, err error) {
+// GetAllKeysRange returns an ArrayRequest that retrieves record keys for all objects in the object store matching the specified query. If maxCount is 0, retrieves all objects matching the query.
+func (o *ObjectStore) GetAllKeysRange(query *KeyRange, maxCount uint) (_ *ArrayRequest, err error) {
 	defer exception.Catch(&err)
 	args := []interface{}{query}
 	if maxCount > 0 {
@@ -139,6 +135,12 @@ func (o *ObjectStore) GetAllKeysQuery(query js.Value, maxCount uint) (_ *ArrayRe
 	}
 	req := wrapRequest(o.jsObjectStore.Call("getAllKeys", args...))
 	return newArrayRequest(req), nil
+}
+
+// Get returns a Request, and, in a separate thread, returns the store object store selected by the specified key. This is for retrieving specific records from an object store.
+func (o *ObjectStore) Get(key js.Value) (_ *Request, err error) {
+	defer exception.Catch(&err)
+	return wrapRequest(o.jsObjectStore.Call("get", key)), nil
 }
 
 // GetKey returns a Request, and, in a separate thread retrieves and returns the record key for the object matching the specified parameter.
@@ -167,7 +169,14 @@ func (o *ObjectStore) PutKey(key, value js.Value) (_ *Request, err error) {
 }
 
 // OpenCursor returns a CursorWithValueRequest, and, in a separate thread, returns a new CursorWithValue. Used for iterating through an object store by primary key with a cursor.
-func (o *ObjectStore) OpenCursor(key js.Value, direction CursorDirection) (_ *CursorWithValueRequest, err error) {
+func (o *ObjectStore) OpenCursor(direction CursorDirection) (_ *CursorWithValueRequest, err error) {
+	defer exception.Catch(&err)
+	req := wrapRequest(o.jsObjectStore.Call("openCursor", js.Null(), direction.String()))
+	return newCursorWithValueRequest(req), nil
+}
+
+// OpenCursorKey is the same as OpenCursor, but opens a cursor over the given key instead.
+func (o *ObjectStore) OpenCursorKey(key js.Value, direction CursorDirection) (_ *CursorWithValueRequest, err error) {
 	defer exception.Catch(&err)
 	req := wrapRequest(o.jsObjectStore.Call("openCursor", key, direction.String()))
 	return newCursorWithValueRequest(req), nil
@@ -180,30 +189,23 @@ func (o *ObjectStore) OpenCursorRange(keyRange *KeyRange, direction CursorDirect
 	return newCursorWithValueRequest(req), nil
 }
 
-// OpenCursorAll is the same as OpenCursor, but opens a cursor over all objects.
-func (o *ObjectStore) OpenCursorAll(direction CursorDirection) (_ *CursorWithValueRequest, err error) {
+// OpenKeyCursor returns a CursorRequest, and, in a separate thread, returns a new Cursor. Used for iterating through all keys in an object store.
+func (o *ObjectStore) OpenKeyCursor(direction CursorDirection) (_ *CursorRequest, err error) {
 	defer exception.Catch(&err)
-	req := wrapRequest(o.jsObjectStore.Call("openCursor", nil, direction.String()))
-	return newCursorWithValueRequest(req), nil
+	req := wrapRequest(o.jsObjectStore.Call("openKeyCursor", js.Null(), direction.String()))
+	return newCursorRequest(req), nil
 }
 
-// OpenKeyCursor returns a CursorRequest, and, in a separate thread, returns a new Cursor. Used for iterating through an object store with a key.
-func (o *ObjectStore) OpenKeyCursor(key js.Value, direction CursorDirection) (_ *CursorRequest, err error) {
+// OpenKeyCursorKey is the same as OpenKeyCursor, but opens a cursor over the given key instead.
+func (o *ObjectStore) OpenKeyCursorKey(key js.Value, direction CursorDirection) (_ *CursorRequest, err error) {
 	defer exception.Catch(&err)
 	req := wrapRequest(o.jsObjectStore.Call("openKeyCursor", key, direction.String()))
 	return newCursorRequest(req), nil
 }
 
-// OpenKeyCursorRange returns a CursorRequest, and, in a separate thread, returns a new Cursor. Used for iterating through an object store with a key range.
+// OpenKeyCursorRange is the same as OpenKeyCursor, but opens a cursor over the given key range instead.
 func (o *ObjectStore) OpenKeyCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *CursorRequest, err error) {
 	defer exception.Catch(&err)
 	req := wrapRequest(o.jsObjectStore.Call("openKeyCursor", keyRange, direction.String()))
-	return newCursorRequest(req), nil
-}
-
-// OpenKeyCursorAll returns a CursorRequest, and, in a separate thread, returns a new Cursor. Used for iterating through all objects in an object store.
-func (o *ObjectStore) OpenKeyCursorAll(direction CursorDirection) (_ *CursorRequest, err error) {
-	defer exception.Catch(&err)
-	req := wrapRequest(o.jsObjectStore.Call("openKeyCursor", nil, direction.String()))
 	return newCursorRequest(req), nil
 }

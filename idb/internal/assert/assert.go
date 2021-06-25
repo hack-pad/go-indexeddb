@@ -3,9 +3,11 @@
 package assert
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Error asserts err is not nil
@@ -52,7 +54,7 @@ func NotZero(tb testing.TB, value interface{}) bool {
 func Equal(tb testing.TB, expected, actual interface{}) bool {
 	tb.Helper()
 	if !reflect.DeepEqual(expected, actual) {
-		tb.Errorf("Expected: %#v\nActual:    %#v", expected, actual)
+		tb.Errorf("%+v != %+v\nExpected: %#v\nActual:    %#v", expected, actual, expected, actual)
 		return false
 	}
 	return true
@@ -62,7 +64,7 @@ func Equal(tb testing.TB, expected, actual interface{}) bool {
 func NotEqual(tb testing.TB, expected, actual interface{}) bool {
 	tb.Helper()
 	if reflect.DeepEqual(expected, actual) {
-		tb.Errorf("Should not be equal.\nExpected: %#v\nActual:    %#v", expected, actual)
+		tb.Errorf("Should not be equal: %+v\nExpected: %#v\nActual:    %#v", actual, expected, actual)
 		return false
 	}
 	return true
@@ -113,4 +115,26 @@ func NotContains(tb testing.TB, collection, item interface{}) bool {
 		return false
 	}
 	return true
+}
+
+// Eventually asserts fn() returns true within totalWait time, checking at the given interval
+func Eventually(tb testing.TB, fn func(context.Context) bool, totalWait time.Duration, checkInterval time.Duration) bool {
+	tb.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), totalWait)
+	defer cancel()
+	for {
+		success := fn(ctx)
+		if success {
+			return true
+		}
+		timer := time.NewTimer(checkInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			tb.Errorf("Condition did not become true within %s", totalWait)
+			return false
+		case <-timer.C:
+		}
+	}
 }

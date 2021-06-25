@@ -3,6 +3,7 @@
 package idb
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"syscall/js"
@@ -16,8 +17,8 @@ type OpenDBRequest struct {
 // Upgrader is a function that can upgrade the given database from an old version to a new one.
 type Upgrader func(db *Database, oldVersion, newVersion uint) error
 
-func newOpenDBRequest(req *Request, upgrader Upgrader) *OpenDBRequest {
-	req.ListenSuccess(func() {
+func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *OpenDBRequest {
+	req.ListenSuccess(ctx, func() {
 		jsDB, err := req.Result()
 		if err != nil {
 			panic(err)
@@ -28,7 +29,7 @@ func newOpenDBRequest(req *Request, upgrader Upgrader) *OpenDBRequest {
 			return nil
 		}))
 	})
-	req.jsRequest.Call(addEventListener, "upgradeneeded", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	upgrade := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		event := args[0]
 		var err error
 		jsDatabase, err := req.Result()
@@ -45,7 +46,13 @@ func newOpenDBRequest(req *Request, upgrader Upgrader) *OpenDBRequest {
 			panic(err)
 		}
 		return nil
-	}))
+	})
+	req.jsRequest.Call(addEventListener, "upgradeneeded", upgrade)
+	go func() {
+		<-ctx.Done()
+		req.jsRequest.Call(removeEventListener, "upgradeneeded", upgrade)
+		upgrade.Release()
+	}()
 	return &OpenDBRequest{req}
 }
 
@@ -59,8 +66,8 @@ func (o *OpenDBRequest) Result() (*Database, error) {
 }
 
 // Await waits for success or failure, then returns the results.
-func (o *OpenDBRequest) Await() (*Database, error) {
-	db, err := o.Request.Await()
+func (o *OpenDBRequest) Await(ctx context.Context) (*Database, error) {
+	db, err := o.Request.Await(ctx)
 	if err != nil {
 		return nil, err
 	}

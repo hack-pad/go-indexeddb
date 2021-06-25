@@ -30,9 +30,9 @@ func parseCursorDirection(s string) CursorDirection {
 	switch s {
 	case "nextunique":
 		return CursorNextUnique
-	case "previous":
+	case "prev":
 		return CursorPrevious
-	case "previousunique":
+	case "prevunique":
 		return CursorPreviousUnique
 	default:
 		return CursorNext
@@ -44,9 +44,9 @@ func (d CursorDirection) String() string {
 	case CursorNextUnique:
 		return "nextunique"
 	case CursorPrevious:
-		return "previous"
+		return "prev"
 	case CursorPreviousUnique:
-		return "previousunique"
+		return "prevunique"
 	default:
 		return "next"
 	}
