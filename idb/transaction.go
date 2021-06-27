@@ -181,12 +181,11 @@ func (t *Transaction) Await(ctx context.Context) error {
 func (t *Transaction) prepareAwait(ctx context.Context) promise.Promise {
 	resolve, reject, prom := promise.NewChan(ctx)
 
-	var errFunc, completeFunc js.Func
-	errFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	errFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go reject(t.Err())
 		return nil
 	})
-	completeFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	completeFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go resolve(nil)
 		return nil
 	})

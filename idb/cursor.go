@@ -55,10 +55,11 @@ func (d CursorDirection) String() string {
 // Cursor represents a cursor for traversing or iterating over multiple records in a Database
 type Cursor struct {
 	jsCursor js.Value
+	iterated bool // set to true when an iteration method is called, like Continue
 }
 
 func wrapCursor(jsCursor js.Value) *Cursor {
-	return &Cursor{jsCursor}
+	return &Cursor{jsCursor: jsCursor}
 }
 
 // Source returns the ObjectStore or Index that the cursor is iterating
@@ -101,6 +102,7 @@ func (c *Cursor) Request() (_ *Request, err error) {
 // Advance sets the number of times a cursor should move its position forward.
 func (c *Cursor) Advance(count uint) (err error) {
 	defer exception.Catch(&err)
+	c.iterated = true
 	c.jsCursor.Call("advance", count)
 	return nil
 }
@@ -108,6 +110,7 @@ func (c *Cursor) Advance(count uint) (err error) {
 // Continue advances the cursor to the next position along its direction.
 func (c *Cursor) Continue() (err error) {
 	defer exception.Catch(&err)
+	c.iterated = true
 	c.jsCursor.Call("continue")
 	return nil
 }
@@ -115,13 +118,15 @@ func (c *Cursor) Continue() (err error) {
 // ContinueKey advances the cursor to the next position along its direction.
 func (c *Cursor) ContinueKey(key js.Value) (err error) {
 	defer exception.Catch(&err)
+	c.iterated = true
 	c.jsCursor.Call("continue", key)
 	return nil
 }
 
-// ContinuePrimaryKey sets the cursor to the given index key and primary key given as arguments.
+// ContinuePrimaryKey sets the cursor to the given index key and primary key given as arguments. Returns an error if the source is not an index.
 func (c *Cursor) ContinuePrimaryKey(key, primaryKey js.Value) (err error) {
 	defer exception.Catch(&err)
+	c.iterated = true
 	c.jsCursor.Call("continuePrimaryKey", key, primaryKey)
 	return nil
 }
@@ -144,8 +149,12 @@ type CursorWithValue struct {
 	*Cursor
 }
 
+func newCursorWithValue(cursor *Cursor) *CursorWithValue {
+	return &CursorWithValue{cursor}
+}
+
 func wrapCursorWithValue(jsCursor js.Value) *CursorWithValue {
-	return &CursorWithValue{wrapCursor(jsCursor)}
+	return newCursorWithValue(wrapCursor(jsCursor))
 }
 
 // Value returns the value of the current cursor

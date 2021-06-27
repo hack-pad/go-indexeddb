@@ -4,10 +4,15 @@ package idb
 
 import (
 	"context"
+	"errors"
 	"log"
 	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
+)
+
+var (
+	ErrCursorStopIter = errors.New("stop cursor iteration")
 )
 
 var (
@@ -58,15 +63,16 @@ func (r *Request) Err() (err error) {
 
 // Await waits for success or failure, then returns the results.
 func (r *Request) Await(ctx context.Context) (result js.Value, err error) {
-	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	r.Listen(ctx, func() {
 		result, err = r.Result()
-		close(done)
+		cancel()
 	}, func() {
 		err = r.Err()
-		close(done)
+		cancel()
 	})
-	<-done
+	<-ctx.Done()
 	return
 }
 
@@ -103,33 +109,40 @@ func (r *Request) Listen(ctx context.Context, success, failed func()) {
 		log.Println("Failed resolving request results:", err)
 		_ = r.transaction().Abort()
 		cancel()
+		ignorePanic(failed) // helps the listener to cancel the outer context
 	}
 
-	var errFunc, successFunc js.Func
-	// setting up both is required to ensure boath are always released
-	errFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		defer exception.CatchHandler(panicHandler)
-		if failed != nil {
+	if failed != nil {
+		errFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer exception.CatchHandler(panicHandler)
 			failed()
-		}
-		return nil
-	})
-	successFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		defer exception.CatchHandler(panicHandler)
-		if success != nil {
+			return nil
+		})
+		r.jsRequest.Call(addEventListener, "error", errFunc)
+		go func() {
+			<-ctx.Done()
+			r.jsRequest.Call(removeEventListener, "error", errFunc)
+			errFunc.Release()
+		}()
+	}
+	if success != nil {
+		successFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer exception.CatchHandler(panicHandler)
 			success()
-		}
-		return nil
-	})
-	r.jsRequest.Call(addEventListener, "error", errFunc)
-	r.jsRequest.Call(addEventListener, "success", successFunc)
-	go func() {
-		<-ctx.Done()
-		r.jsRequest.Call(removeEventListener, "error", errFunc)
-		r.jsRequest.Call(removeEventListener, "success", successFunc)
-		errFunc.Release()
-		successFunc.Release()
-	}()
+			return nil
+		})
+		r.jsRequest.Call(addEventListener, "success", successFunc)
+		go func() {
+			<-ctx.Done()
+			r.jsRequest.Call(removeEventListener, "success", successFunc)
+			successFunc.Release()
+		}()
+	}
+}
+
+func ignorePanic(fn func()) {
+	defer recover()
+	fn()
 }
 
 // UintRequest is a Request that retrieves a uint result
@@ -214,6 +227,48 @@ func (a *AckRequest) Await(ctx context.Context) error {
 	return err
 }
 
+func cursorIter(ctx context.Context, req *Request, iter func(*Cursor) error) error {
+	ctx, cancel := context.WithCancel(ctx)
+	var returnErr error
+	req.Listen(ctx, func() {
+		jsCursor, err := req.Result()
+		if err != nil {
+			returnErr = err
+			cancel()
+			return
+		}
+		if jsCursor.IsNull() {
+			cancel()
+			return
+		}
+		cursor := wrapCursor(jsCursor)
+		err = iter(cursor)
+		if err != nil {
+			if err != ErrCursorStopIter {
+				returnErr = err
+			}
+			cancel()
+			return
+		}
+		if !cursor.iterated {
+			err := cursor.Continue()
+			if err != nil {
+				returnErr = err
+				cancel()
+				return
+			}
+		}
+	}, func() {
+		returnErr = req.Err()
+		if returnErr == nil {
+			returnErr = errors.New("Failed to handle panic in JS callback")
+		}
+		cancel()
+	})
+	<-ctx.Done()
+	return returnErr
+}
+
 // CursorRequest is a Request that retrieves a Cursor
 type CursorRequest struct {
 	*Request
@@ -225,31 +280,9 @@ func newCursorRequest(req *Request) *CursorRequest {
 
 // Iter invokes the callback when the request succeeds for each cursor iteration
 func (c *CursorRequest) Iter(ctx context.Context, iter func(*Cursor) error) error {
-	ctx, cancel := context.WithCancel(ctx)
-	var returnErr error
-	c.Listen(ctx, func() {
-		cursor, err := c.Result()
-		if err != nil {
-			returnErr = err
-			cancel()
-			return
-		}
-		if cursor.jsCursor.IsNull() {
-			cancel()
-			return
-		}
-		err = iter(cursor)
-		if err != nil {
-			returnErr = err
-			cancel()
-			return
-		}
-	}, func() {
-		returnErr = c.Err()
-		cancel()
+	return cursorIter(ctx, c.Request, func(cursor *Cursor) error {
+		return iter(cursor)
 	})
-	<-ctx.Done()
-	return returnErr
 }
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
@@ -283,31 +316,9 @@ func newCursorWithValueRequest(req *Request) *CursorWithValueRequest {
 
 // Iter invokes the callback when the request succeeds for each cursor iteration
 func (c *CursorWithValueRequest) Iter(ctx context.Context, iter func(*CursorWithValue) error) error {
-	ctx, cancel := context.WithCancel(ctx)
-	var returnErr error
-	c.Listen(ctx, func() {
-		cursor, err := c.Result()
-		if err != nil {
-			returnErr = err
-			cancel()
-			return
-		}
-		if cursor.jsCursor.IsNull() {
-			cancel()
-			return
-		}
-		err = iter(cursor)
-		if err != nil {
-			returnErr = err
-			cancel()
-			return
-		}
-	}, func() {
-		returnErr = c.Err()
-		cancel()
+	return cursorIter(ctx, c.Request, func(cursor *Cursor) error {
+		return iter(newCursorWithValue(cursor))
 	})
-	<-ctx.Done()
-	return returnErr
 }
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.

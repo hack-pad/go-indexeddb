@@ -15,6 +15,7 @@ func TestNewKeyRangeBound(t *testing.T) {
 	keyRangeClosedOpen, err := NewKeyRangeBound(js.ValueOf(0), js.ValueOf(100), false, true)
 	assert.NoError(t, err)
 	for _, tc := range []struct {
+		name           string // auto-filled, satisfies paralleltest linter
 		input          int
 		expectIncludes bool
 	}{
@@ -23,6 +24,7 @@ func TestNewKeyRangeBound(t *testing.T) {
 		{input: 50, expectIncludes: true},
 		{input: 100, expectIncludes: false},
 	} {
+		tc.name = fmt.Sprint("closed open ", tc.input)
 		tc := tc // keep loop-local copy of test case for parallel runs
 		t.Run(fmt.Sprint(tc.input), func(t *testing.T) {
 			t.Parallel()
@@ -44,7 +46,7 @@ func TestNewKeyRangeBound(t *testing.T) {
 		{input: 50, expectIncludes: true},
 		{input: 100, expectIncludes: true},
 	} {
-		tc.name = fmt.Sprint(tc.input)
+		tc.name = fmt.Sprint("open closed ", tc.input)
 		tc := tc // keep loop-local copy of test case for parallel runs
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
