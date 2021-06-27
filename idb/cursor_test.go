@@ -44,6 +44,7 @@ func someKeyStore(tb testing.TB) (*ObjectStore, *Index) {
 }
 
 func TestCursorSource(t *testing.T) {
+	t.Parallel()
 	store, _ := someKeyStore(t)
 	cursor, err := store.OpenCursor(CursorNext)
 	assert.NoError(t, err)
@@ -55,28 +56,29 @@ func TestCursorSource(t *testing.T) {
 }
 
 func TestCursorDirection(t *testing.T) {
+	t.Parallel()
 	for _, direction := range []CursorDirection{
 		CursorNext,
 		CursorNextUnique,
 		CursorPrevious,
 		CursorPreviousUnique,
 	} {
-		t.Run(direction.String(), func(t *testing.T) {
-			store, _ := someKeyStore(t)
+		t.Log("Direction:", direction) // disabled parallel subtests here, due to an issue in paralleltest linter
+		store, _ := someKeyStore(t)
 
-			req, err := store.OpenCursor(direction)
-			assert.NoError(t, err)
-			cursor, err := req.Await(context.Background())
-			assert.NoError(t, err)
+		req, err := store.OpenCursor(direction)
+		assert.NoError(t, err)
+		cursor, err := req.Await(context.Background())
+		assert.NoError(t, err)
 
-			actualDirection, err := cursor.Direction()
-			assert.NoError(t, err)
-			assert.Equal(t, direction, actualDirection)
-		})
+		actualDirection, err := cursor.Direction()
+		assert.NoError(t, err)
+		assert.Equal(t, direction, actualDirection)
 	}
 }
 
 func TestCursorKey(t *testing.T) {
+	t.Parallel()
 	store, _ := someKeyStore(t)
 	req, err := store.OpenCursor(CursorNext)
 	assert.NoError(t, err)
@@ -94,6 +96,7 @@ func TestCursorKey(t *testing.T) {
 }
 
 func TestCursorPrimaryKey(t *testing.T) {
+	t.Parallel()
 	store, _ := someKeyStore(t)
 	req, err := store.OpenCursor(CursorNext)
 	assert.NoError(t, err)
@@ -111,6 +114,7 @@ func TestCursorPrimaryKey(t *testing.T) {
 }
 
 func TestCursorRequest(t *testing.T) {
+	t.Parallel()
 	store, _ := someKeyStore(t)
 	req, err := store.OpenCursor(CursorNext)
 	assert.NoError(t, err)
@@ -123,6 +127,7 @@ func TestCursorRequest(t *testing.T) {
 }
 
 func TestCursorAdvance(t *testing.T) {
+	t.Parallel()
 	store, _ := someKeyStore(t)
 	req, err := store.OpenCursor(CursorNext)
 	assert.NoError(t, err)
@@ -142,6 +147,7 @@ func TestCursorAdvance(t *testing.T) {
 }
 
 func TestCursorContinue(t *testing.T) {
+	t.Parallel()
 	store, _ := someKeyStore(t)
 	req, err := store.OpenCursor(CursorNext)
 	assert.NoError(t, err)
@@ -161,6 +167,7 @@ func TestCursorContinue(t *testing.T) {
 }
 
 func TestCursorContinueKey(t *testing.T) {
+	t.Parallel()
 	store, _ := someKeyStore(t)
 	req, err := store.OpenCursor(CursorNext)
 	assert.NoError(t, err)
@@ -186,6 +193,7 @@ func TestCursorContinueKey(t *testing.T) {
 }
 
 func TestCursorContinuePrimaryKey(t *testing.T) {
+	t.Parallel()
 	_, index := someKeyStore(t)
 	req, err := index.OpenCursor(CursorNext)
 	assert.NoError(t, err)
@@ -216,6 +224,7 @@ func TestCursorContinuePrimaryKey(t *testing.T) {
 }
 
 func TestCursorDelete(t *testing.T) {
+	t.Parallel()
 	store, _ := someKeyStore(t)
 	req, err := store.OpenCursor(CursorNext)
 	assert.NoError(t, err)
@@ -248,6 +257,7 @@ func TestCursorDelete(t *testing.T) {
 }
 
 func TestCursorUpdateAndValue(t *testing.T) {
+	t.Parallel()
 	store, _ := someKeyStore(t)
 	req, err := store.OpenCursor(CursorNext)
 	assert.NoError(t, err)

@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	// ErrCursorStopIter stops iteration when returned from a CursorRequest.Iter() handler
 	ErrCursorStopIter = errors.New("stop cursor iteration")
 )
 
@@ -141,7 +142,9 @@ func (r *Request) Listen(ctx context.Context, success, failed func()) {
 }
 
 func ignorePanic(fn func()) {
-	defer recover()
+	defer func() {
+		_ = recover()
+	}()
 	fn()
 }
 

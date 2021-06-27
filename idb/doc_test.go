@@ -1,5 +1,6 @@
 // +build js,wasm
 
+// nolint:errcheck
 package idb_test
 
 import (
