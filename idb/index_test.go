@@ -9,7 +9,7 @@ import (
 	"github.com/hack-pad/go-indexeddb/idb/internal/assert"
 )
 
-func TestIndexGetObjectStore(t *testing.T) {
+func TestIndexObjectStore(t *testing.T) {
 	t.Parallel()
 	db := testDB(t, func(db *Database) {
 		store, err := db.CreateObjectStore("mystore", ObjectStoreOptions{})
@@ -24,7 +24,7 @@ func TestIndexGetObjectStore(t *testing.T) {
 	index, err := store.Index("myindex")
 	assert.NoError(t, err)
 
-	indexStore, err := index.GetObjectStore()
+	indexStore, err := index.ObjectStore()
 	assert.NoError(t, err)
 	assert.Equal(t, store, indexStore)
 }
