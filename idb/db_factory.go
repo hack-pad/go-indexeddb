@@ -24,7 +24,7 @@ var (
 
 // Global returns the global IndexedDB instance.
 // Can be called multiple times, will always return the same result (or error if one occurs).
-func Global() (*Factory, error) {
+func Global() *Factory {
 	globalOnce.Do(func() {
 		jsFactory := js.Global().Get("indexedDB")
 		if !jsFactory.Truthy() {
@@ -33,7 +33,10 @@ func Global() (*Factory, error) {
 			global, globalErr = WrapFactory(jsFactory)
 		}
 	})
-	return global, globalErr
+	if globalErr != nil {
+		panic(globalErr)
+	}
+	return global
 }
 
 // WrapFactory wraps the given IDBFactory object

@@ -15,10 +15,7 @@ import (
 
 func testDB(tb testing.TB, initFunc func(*Database)) *Database {
 	tb.Helper()
-	dbFactory, err := Global()
-	if !assert.NoError(tb, err) {
-		tb.FailNow()
-	}
+	dbFactory := Global()
 
 	n, err := rand.Int(rand.Reader, big.NewInt(1000))
 	assert.NoError(tb, err)

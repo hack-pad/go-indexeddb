@@ -138,3 +138,31 @@ func Eventually(tb testing.TB, fn func(context.Context) bool, totalWait time.Dur
 		}
 	}
 }
+
+// Panics asserts fn() panics
+func Panics(tb testing.TB, fn func()) (panicked bool) {
+	tb.Helper()
+	defer func() {
+		val := recover()
+		if val != nil {
+			panicked = true
+		} else {
+			tb.Error("Function should panic")
+		}
+	}()
+	fn()
+	return false
+}
+
+// NotPanics asserts fn() does not panic
+func NotPanics(tb testing.TB, fn func()) bool {
+	tb.Helper()
+	defer func() {
+		val := recover()
+		if val != nil {
+			tb.Errorf("Function should not panic, got: %#v", val)
+		}
+	}()
+	fn()
+	return true
+}

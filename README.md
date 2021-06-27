@@ -1,3 +1,10 @@
-# go-indexeddb    [![Go Reference](https://pkg.go.dev/badge/github.com/hack-pad/go-indexeddb/idb.svg)](https://pkg.go.dev/github.com/hack-pad/go-indexeddb/idb)
+# go-indexeddb    [![Go Reference](https://pkg.go.dev/badge/github.com/hack-pad/go-indexeddb/idb.svg)][reference]
 
 An IndexedDB driver with bindings for Go code compiled to WebAssembly.
+
+Package `idb` is a low-level Go driver that provides type-safe bindings to IndexedDB in Wasm programs.
+The primary focus is to align with the IndexedDB spec, followed by ease of use.
+
+To get started, get the global indexedDB instance with idb.Global(). See the [reference][] for examples and full documentation.
+
+[reference]: https://pkg.go.dev/github.com/hack-pad/go-indexeddb/idb

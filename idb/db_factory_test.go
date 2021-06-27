@@ -15,17 +15,16 @@ const testDBPrefix = "go-indexeddb-test-"
 
 func TestGlobal(t *testing.T) {
 	t.Parallel()
-	dbFactory, err := Global()
-	assert.NoError(t, err)
+	var dbFactory *Factory
+	assert.NotPanics(t, func() {
+		dbFactory = Global()
+	})
 	assert.Equal(t, &Factory{js.Global().Get("indexedDB")}, dbFactory)
 }
 
 func testFactory(tb testing.TB) *Factory {
 	tb.Helper()
-	dbFactory, err := Global()
-	if !assert.NoError(tb, err) {
-		tb.FailNow()
-	}
+	dbFactory := Global()
 	tb.Cleanup(func() {
 		databaseNames := testGetDatabases(tb, dbFactory)
 		var requests []*AckRequest
