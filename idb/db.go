@@ -60,8 +60,8 @@ func (db *Database) Close() (err error) {
 }
 
 // Transaction returns a transaction object containing the Transaction.ObjectStore() method, which you can use to access your object store.
-func (db *Database) Transaction(mode TransactionMode, objectStoreNames ...string) (_ *Transaction, err error) {
-	return db.TransactionWithOptions(TransactionOptions{Mode: mode}, objectStoreNames...)
+func (db *Database) Transaction(mode TransactionMode, objectStoreName string, objectStoreNames ...string) (_ *Transaction, err error) {
+	return db.TransactionWithOptions(TransactionOptions{Mode: mode}, objectStoreName, objectStoreNames...)
 }
 
 // TransactionOptions contains all available options for creating and starting a Transaction
@@ -71,8 +71,10 @@ type TransactionOptions struct {
 }
 
 // TransactionWithOptions returns a transaction object containing the Transaction.ObjectStore() method, which you can use to access your object store.
-func (db *Database) TransactionWithOptions(options TransactionOptions, objectStoreNames ...string) (_ *Transaction, err error) {
+func (db *Database) TransactionWithOptions(options TransactionOptions, objectStoreName string, objectStoreNames ...string) (_ *Transaction, err error) {
 	defer exception.Catch(&err)
+	objectStoreNames = append([]string{objectStoreName}, objectStoreNames...) // require at least one name
+
 	optionsMap := make(map[string]interface{})
 	if options.Durability > 0 {
 		optionsMap["durability"] = options.Durability
