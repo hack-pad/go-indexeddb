@@ -42,7 +42,7 @@ func (db *Database) CreateObjectStore(name string, options ObjectStoreOptions) (
 		"autoIncrement": options.AutoIncrement,
 		"keyPath":       options.KeyPath,
 	})
-	return wrapObjectStore(jsObjectStore), nil
+	return wrapObjectStore(nil, jsObjectStore), nil
 }
 
 // DeleteObjectStore destroys the object store with the given name in the connected database, along with any indexes that reference it.
@@ -86,5 +86,5 @@ func (db *Database) TransactionWithOptions(options TransactionOptions, objectSto
 	}
 
 	jsTxn := db.jsDB.Call("transaction", args...)
-	return wrapTransaction(jsTxn), nil
+	return wrapTransaction(db, jsTxn), nil
 }

@@ -19,8 +19,8 @@ type ObjectStore struct {
 	base *baseObjectStore // don't embed to avoid generated docs with the wrong receiver type (ObjectStore vs *ObjectStore)
 }
 
-func wrapObjectStore(jsObjectStore js.Value) *ObjectStore {
-	return &ObjectStore{wrapBaseObjectStore(jsObjectStore)}
+func wrapObjectStore(txn *Transaction, jsObjectStore js.Value) *ObjectStore {
+	return &ObjectStore{wrapBaseObjectStore(txn, jsObjectStore)}
 }
 
 // IndexNames returns a list of the names of indexes on objects in this object store.
@@ -42,9 +42,11 @@ func (o *ObjectStore) Name() (_ string, err error) {
 }
 
 // Transaction returns the Transaction object to which this object store belongs.
-func (o *ObjectStore) Transaction() (_ *Transaction, err error) {
-	defer exception.Catch(&err)
-	return wrapTransaction(o.base.jsObjectStore.Get("transaction")), nil
+func (o *ObjectStore) Transaction() (*Transaction, error) {
+	if o.base.txn == (*Transaction)(nil) {
+		return nil, errNotInTransaction
+	}
+	return o.base.txn, nil
 }
 
 // AutoIncrement returns the value of the auto increment flag for this object store.
@@ -56,21 +58,21 @@ func (o *ObjectStore) AutoIncrement() (_ bool, err error) {
 // Add returns an AckRequest, and, in a separate thread, creates a structured clone of the value, and stores the cloned value in the object store. This is for adding new records to an object store.
 func (o *ObjectStore) Add(value js.Value) (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	req := wrapRequest(o.base.jsObjectStore.Call("add", value))
+	req := wrapRequest(o.base.txn, o.base.jsObjectStore.Call("add", value))
 	return newAckRequest(req), nil
 }
 
 // AddKey is the same as Add, but includes the key to use to identify the record.
 func (o *ObjectStore) AddKey(key, value js.Value) (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	req := wrapRequest(o.base.jsObjectStore.Call("add", value, key))
+	req := wrapRequest(o.base.txn, o.base.jsObjectStore.Call("add", value, key))
 	return newAckRequest(req), nil
 }
 
 // Clear returns an AckRequest, then clears this object store in a separate thread. This is for deleting all current records out of an object store.
 func (o *ObjectStore) Clear() (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	req := wrapRequest(o.base.jsObjectStore.Call("clear"))
+	req := wrapRequest(o.base.txn, o.base.jsObjectStore.Call("clear"))
 	return newAckRequest(req), nil
 }
 
@@ -96,13 +98,13 @@ func (o *ObjectStore) CreateIndex(name string, keyPath js.Value, options IndexOp
 		"unique":     options.Unique,
 		"multiEntry": options.MultiEntry,
 	})
-	return wrapIndex(jsIndex), nil
+	return wrapIndex(o.base.txn, jsIndex), nil
 }
 
 // Delete returns an AckRequest, and, in a separate thread, deletes the store object selected by the specified key. This is for deleting individual records out of an object store.
 func (o *ObjectStore) Delete(key js.Value) (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	req := wrapRequest(o.base.jsObjectStore.Call("delete", key))
+	req := wrapRequest(o.base.txn, o.base.jsObjectStore.Call("delete", key))
 	return newAckRequest(req), nil
 }
 
@@ -137,19 +139,19 @@ func (o *ObjectStore) GetKey(value js.Value) (*Request, error) {
 func (o *ObjectStore) Index(name string) (index *Index, err error) {
 	defer exception.Catch(&err)
 	jsIndex := o.base.jsObjectStore.Call("index", name)
-	return wrapIndex(jsIndex), nil
+	return wrapIndex(o.base.txn, jsIndex), nil
 }
 
 // Put returns a Request, and, in a separate thread, creates a structured clone of the value, and stores the cloned value in the object store. This is for updating existing records in an object store when the transaction's mode is readwrite.
 func (o *ObjectStore) Put(value js.Value) (_ *Request, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.base.jsObjectStore.Call("put", value)), nil
+	return wrapRequest(o.base.txn, o.base.jsObjectStore.Call("put", value)), nil
 }
 
 // PutKey is the same as Put, but includes the key to use to identify the record.
 func (o *ObjectStore) PutKey(key, value js.Value) (_ *Request, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(o.base.jsObjectStore.Call("put", value, key)), nil
+	return wrapRequest(o.base.txn, o.base.jsObjectStore.Call("put", value, key)), nil
 }
 
 // OpenCursor returns a CursorWithValueRequest, and, in a separate thread, returns a new CursorWithValue. Used for iterating through an object store by primary key with a cursor.

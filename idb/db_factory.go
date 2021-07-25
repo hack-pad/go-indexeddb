@@ -52,14 +52,14 @@ func (f *Factory) Open(upgradeCtx context.Context, name string, version uint, up
 	if version > 0 {
 		args = append(args, version)
 	}
-	req := wrapRequest(f.jsFactory.Call("open", args...))
+	req := wrapRequest(nil, f.jsFactory.Call("open", args...))
 	return newOpenDBRequest(upgradeCtx, req, upgrader), nil
 }
 
 // DeleteDatabase requests the deletion of a database.
 func (f *Factory) DeleteDatabase(name string) (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	req := wrapRequest(f.jsFactory.Call("deleteDatabase", name))
+	req := wrapRequest(nil, f.jsFactory.Call("deleteDatabase", name))
 	return newAckRequest(req), nil
 }
 

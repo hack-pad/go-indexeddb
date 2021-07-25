@@ -54,12 +54,19 @@ func (d CursorDirection) String() string {
 
 // Cursor represents a cursor for traversing or iterating over multiple records in a Database
 type Cursor struct {
+	txn      *Transaction
 	jsCursor js.Value
 	iterated bool // set to true when an iteration method is called, like Continue
 }
 
-func wrapCursor(jsCursor js.Value) *Cursor {
-	return &Cursor{jsCursor: jsCursor}
+func wrapCursor(txn *Transaction, jsCursor js.Value) *Cursor {
+	if txn == nil {
+		txn = (*Transaction)(nil)
+	}
+	return &Cursor{
+		txn:      txn,
+		jsCursor: jsCursor,
+	}
 }
 
 // Source returns the ObjectStore or Index that the cursor is iterating
@@ -67,9 +74,9 @@ func (c *Cursor) Source() (objectStore *ObjectStore, index *Index, err error) {
 	defer exception.Catch(&err)
 	jsSource := c.jsCursor.Get("source")
 	if jsSource.InstanceOf(jsObjectStore) {
-		objectStore = wrapObjectStore(jsSource)
+		objectStore = wrapObjectStore(c.txn, jsSource)
 	} else if jsSource.InstanceOf(jsIDBIndex) {
-		index = wrapIndex(jsSource)
+		index = wrapIndex(c.txn, jsSource)
 	}
 	return
 }
@@ -96,7 +103,7 @@ func (c *Cursor) PrimaryKey() (_ js.Value, err error) {
 // Request returns the Request that was used to obtain the cursor.
 func (c *Cursor) Request() (_ *Request, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(c.jsCursor.Get("request")), nil
+	return wrapRequest(c.txn, c.jsCursor.Get("request")), nil
 }
 
 // Advance sets the number of times a cursor should move its position forward.
@@ -134,14 +141,14 @@ func (c *Cursor) ContinuePrimaryKey(key, primaryKey js.Value) (err error) {
 // Delete returns an AckRequest, and, in a separate thread, deletes the record at the cursor's position, without changing the cursor's position. This can be used to delete specific records.
 func (c *Cursor) Delete() (_ *AckRequest, err error) {
 	defer exception.Catch(&err)
-	req := wrapRequest(c.jsCursor.Call("delete"))
+	req := wrapRequest(c.txn, c.jsCursor.Call("delete"))
 	return newAckRequest(req), nil
 }
 
 // Update returns a Request, and, in a separate thread, updates the value at the current position of the cursor in the object store. This can be used to update specific records.
 func (c *Cursor) Update(value js.Value) (_ *Request, err error) {
 	defer exception.Catch(&err)
-	return wrapRequest(c.jsCursor.Call("update", value)), nil
+	return wrapRequest(c.txn, c.jsCursor.Call("update", value)), nil
 }
 
 // CursorWithValue represents a cursor for traversing or iterating over multiple records in a database. It is the same as the Cursor, except that it includes the value property.
@@ -153,8 +160,8 @@ func newCursorWithValue(cursor *Cursor) *CursorWithValue {
 	return &CursorWithValue{cursor}
 }
 
-func wrapCursorWithValue(jsCursor js.Value) *CursorWithValue {
-	return newCursorWithValue(wrapCursor(jsCursor))
+func wrapCursorWithValue(txn *Transaction, jsCursor js.Value) *CursorWithValue {
+	return newCursorWithValue(wrapCursor(txn, jsCursor))
 }
 
 // Value returns the value of the current cursor

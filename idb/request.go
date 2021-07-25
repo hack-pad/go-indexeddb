@@ -24,14 +24,21 @@ var (
 // Request provides access to results of asynchronous requests to databases and database objects
 // using event listeners. Each reading and writing operation on a database is done using a request.
 type Request struct {
+	txn       *Transaction
 	jsRequest js.Value
 }
 
-func wrapRequest(jsRequest js.Value) *Request {
+func wrapRequest(txn *Transaction, jsRequest js.Value) *Request {
 	if !jsRequest.InstanceOf(jsIDBRequest) {
 		panic("Invalid JS request type")
 	}
-	return &Request{jsRequest}
+	if txn == nil {
+		txn = (*Transaction)(nil)
+	}
+	return &Request{
+		txn:       txn,
+		jsRequest: jsRequest,
+	}
 }
 
 // Source returns the source of the request, such as an Index or an ObjectStore. If no source exists (such as when calling Factory.Open), it returns nil for both.
@@ -39,9 +46,9 @@ func (r *Request) Source() (objectStore *ObjectStore, index *Index, err error) {
 	defer exception.Catch(&err)
 	jsSource := r.jsRequest.Get("source")
 	if jsSource.InstanceOf(jsObjectStore) {
-		objectStore = wrapObjectStore(jsSource)
+		objectStore = wrapObjectStore(r.txn, jsSource)
 	} else if jsSource.InstanceOf(jsIDBIndex) {
-		index = wrapIndex(jsSource)
+		index = wrapIndex(r.txn, jsSource)
 	}
 	return
 }
@@ -84,13 +91,11 @@ func (r *Request) ReadyState() (_ string, err error) {
 }
 
 // Transaction returns the transaction for the request. This can return nil for certain requests, for example those returned from Factory.Open unless an upgrade is needed. (You're just connecting to a database, so there is no transaction to return).
-func (r *Request) Transaction() (_ *Transaction, err error) {
-	defer exception.Catch(&err)
-	return r.transaction(), nil
-}
-
-func (r *Request) transaction() *Transaction {
-	return wrapTransaction(r.jsRequest.Get("transaction"))
+func (r *Request) Transaction() (*Transaction, error) {
+	if r.txn == (*Transaction)(nil) {
+		return nil, errNotInTransaction
+	}
+	return r.txn, nil
 }
 
 // ListenSuccess invokes the callback when the request succeeds
@@ -108,7 +113,10 @@ func (r *Request) Listen(ctx context.Context, success, failed func()) {
 	ctx, cancel := context.WithCancel(ctx)
 	panicHandler := func(err error) {
 		log.Println("Failed resolving request results:", err)
-		_ = r.transaction().Abort()
+		txn, err := r.Transaction()
+		if err == nil {
+			_ = txn.Abort()
+		}
 		cancel()
 		ignorePanic(failed) // helps the listener to cancel the outer context
 	}
@@ -244,7 +252,7 @@ func cursorIter(ctx context.Context, req *Request, iter func(*Cursor) error) err
 			cancel()
 			return
 		}
-		cursor := wrapCursor(jsCursor)
+		cursor := wrapCursor(req.txn, jsCursor)
 		err = iter(cursor)
 		if err != nil {
 			if err != ErrCursorStopIter {
@@ -295,7 +303,7 @@ func (c *CursorRequest) Result() (_ *Cursor, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return wrapCursor(result), nil
+	return wrapCursor(c.txn, result), nil
 }
 
 // Await waits for success or failure, then returns the results.
@@ -305,7 +313,7 @@ func (c *CursorRequest) Await(ctx context.Context) (_ *Cursor, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return wrapCursor(result), nil
+	return wrapCursor(c.txn, result), nil
 }
 
 // CursorWithValueRequest is a Request that retrieves a CursorWithValue
@@ -331,7 +339,7 @@ func (c *CursorWithValueRequest) Result() (_ *CursorWithValue, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return wrapCursorWithValue(result), nil
+	return wrapCursorWithValue(c.txn, result), nil
 }
 
 // Await waits for success or failure, then returns the results.
@@ -341,5 +349,5 @@ func (c *CursorWithValueRequest) Await(ctx context.Context) (_ *CursorWithValue,
 	if err != nil {
 		return nil, err
 	}
-	return wrapCursorWithValue(result), nil
+	return wrapCursorWithValue(c.txn, result), nil
 }

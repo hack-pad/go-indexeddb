@@ -4,6 +4,7 @@ package idb
 
 import (
 	"context"
+	"errors"
 	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
@@ -13,6 +14,8 @@ import (
 
 var (
 	supportsTransactionCommit = js.Global().Get("IDBTransaction").Get("prototype").Get("commit").Truthy()
+
+	errNotInTransaction = errors.New("Not part of a transaction")
 )
 
 var (
@@ -97,21 +100,22 @@ func (d TransactionDurability) JSValue() js.Value {
 // Transaction to set the mode of the transaction (e.g. is it TransactionReadOnly or TransactionReadWrite),
 // and you access an ObjectStore to make a request. You can also use a Transaction object to abort transactions.
 type Transaction struct {
+	db            *Database
 	jsTransaction js.Value
 	objectStores  map[string]*ObjectStore
 }
 
-func wrapTransaction(jsTransaction js.Value) *Transaction {
+func wrapTransaction(db *Database, jsTransaction js.Value) *Transaction {
 	return &Transaction{
+		db:            db,
 		jsTransaction: jsTransaction,
 		objectStores:  make(map[string]*ObjectStore),
 	}
 }
 
 // Database returns the database connection with which this transaction is associated.
-func (t *Transaction) Database() (_ *Database, err error) {
-	defer exception.Catch(&err)
-	return wrapDatabase(t.jsTransaction.Get("db")), nil
+func (t *Transaction) Database() (*Database, error) {
+	return t.db, nil
 }
 
 // Durability returns the durability hint the transaction was created with.
@@ -156,7 +160,7 @@ func (t *Transaction) ObjectStore(name string) (_ *ObjectStore, err error) {
 	}
 	defer exception.Catch(&err)
 	jsObjectStore := t.jsTransaction.Call("objectStore", name)
-	store := wrapObjectStore(jsObjectStore)
+	store := wrapObjectStore(t, jsObjectStore)
 	t.objectStores[name] = store
 	return store, nil
 }

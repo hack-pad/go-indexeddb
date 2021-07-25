@@ -21,14 +21,14 @@ type Index struct {
 	base *baseObjectStore // don't embed to avoid generated docs with the wrong receiver type (Index vs *Index)
 }
 
-func wrapIndex(jsIndex js.Value) *Index {
-	return &Index{wrapBaseObjectStore(jsIndex)}
+func wrapIndex(txn *Transaction, jsIndex js.Value) *Index {
+	return &Index{wrapBaseObjectStore(txn, jsIndex)}
 }
 
 // ObjectStore returns the object store referenced by this index.
 func (i *Index) ObjectStore() (_ *ObjectStore, err error) {
 	defer exception.Catch(&err)
-	return wrapObjectStore(i.base.jsObjectStore.Get("objectStore")), nil
+	return wrapObjectStore(i.base.txn, i.base.jsObjectStore.Get("objectStore")), nil
 }
 
 // Name returns the name of this index
