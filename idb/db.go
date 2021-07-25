@@ -6,15 +6,17 @@ import (
 	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
+	"github.com/hack-pad/go-indexeddb/idb/internal/jscache"
 )
 
 // Database provides a connection to a database. You can use a Database object to open a transaction on your database then create, manipulate, and delete objects (data) in that database.
 type Database struct {
-	jsDB js.Value
+	jsDB        js.Value
+	callStrings jscache.Strings
 }
 
 func wrapDatabase(jsDB js.Value) *Database {
-	return &Database{jsDB}
+	return &Database{jsDB: jsDB}
 }
 
 // Name returns the name of the connected database.

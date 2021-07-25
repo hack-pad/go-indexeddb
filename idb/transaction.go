@@ -193,13 +193,13 @@ func (t *Transaction) prepareAwait(ctx context.Context) promise.Promise {
 		go resolve(nil)
 		return nil
 	})
-	t.jsTransaction.Call(addEventListener, "error", errFunc)
-	t.jsTransaction.Call(addEventListener, "complete", completeFunc)
+	t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("error"), errFunc)
+	t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("complete"), completeFunc)
 
 	go func() {
 		<-ctx.Done()
-		t.jsTransaction.Call(removeEventListener, "error", errFunc)
-		t.jsTransaction.Call(removeEventListener, "complete", completeFunc)
+		t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value("error"), errFunc)
+		t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value("complete"), completeFunc)
 		errFunc.Release()
 		completeFunc.Release()
 	}()
