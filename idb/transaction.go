@@ -109,7 +109,7 @@ func wrapTransaction(db *Database, jsTransaction js.Value) *Transaction {
 	return &Transaction{
 		db:            db,
 		jsTransaction: jsTransaction,
-		objectStores:  make(map[string]*ObjectStore),
+		objectStores:  make(map[string]*ObjectStore, 1),
 	}
 }
 
@@ -184,13 +184,16 @@ func (t *Transaction) Await(ctx context.Context) error {
 
 func (t *Transaction) prepareAwait(ctx context.Context) promise.Promise {
 	resolve, reject, prom := promise.NewChan(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 
 	errFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go reject(t.Err())
+		cancel()
 		return nil
 	})
 	completeFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		go resolve(nil)
+		cancel()
 		return nil
 	})
 	t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("error"), errFunc)

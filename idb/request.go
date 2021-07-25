@@ -110,6 +110,21 @@ func (r *Request) ListenError(ctx context.Context, failed func()) {
 
 // Listen invokes the success callback when the request succeeds and failed when it fails.
 func (r *Request) Listen(ctx context.Context, success, failed func()) {
+	if success != nil {
+		// by default, only listen for 1 value
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithCancel(ctx)
+		originalSuccess := success
+		success = func() {
+			defer cancel()
+			originalSuccess()
+		}
+	}
+	r.listen(ctx, success, failed)
+}
+
+// listen is like Listen, but doesn't cancel the context after success is called
+func (r *Request) listen(ctx context.Context, success, failed func()) {
 	ctx, cancel := context.WithCancel(ctx)
 	panicHandler := func(err error) {
 		log.Println("Failed resolving request results:", err)
@@ -125,6 +140,7 @@ func (r *Request) Listen(ctx context.Context, success, failed func()) {
 		errFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			defer exception.CatchHandler(panicHandler)
 			failed()
+			cancel()
 			return nil
 		})
 		r.jsRequest.Call(addEventListener, "error", errFunc)
@@ -138,6 +154,7 @@ func (r *Request) Listen(ctx context.Context, success, failed func()) {
 		successFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			defer exception.CatchHandler(panicHandler)
 			success()
+			// don't cancel ctx here, need to allow multiple values for cursors
 			return nil
 		})
 		r.jsRequest.Call(addEventListener, "success", successFunc)
@@ -241,7 +258,7 @@ func (a *AckRequest) Await(ctx context.Context) error {
 func cursorIter(ctx context.Context, req *Request, iter func(*Cursor) error) error {
 	ctx, cancel := context.WithCancel(ctx)
 	var returnErr error
-	req.Listen(ctx, func() {
+	req.listen(ctx, func() {
 		jsCursor, err := req.Result()
 		if err != nil {
 			returnErr = err

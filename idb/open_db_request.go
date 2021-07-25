@@ -18,7 +18,9 @@ type OpenDBRequest struct {
 type Upgrader func(db *Database, oldVersion, newVersion uint) error
 
 func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *OpenDBRequest {
+	ctx, cancel := context.WithCancel(ctx)
 	req.ListenSuccess(ctx, func() {
+		defer cancel()
 		jsDB, err := req.Result()
 		if err != nil {
 			panic(err)
