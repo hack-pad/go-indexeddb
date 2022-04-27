@@ -14,7 +14,7 @@ var (
 
 // KeyRange represents a continuous interval over some data type that is used for keys. Records can be retrieved from ObjectStore and Index objects using keys or a range of keys.
 type KeyRange struct {
-	jsKeyRange js.Value
+	js.Value
 }
 
 func wrapKeyRange(jsKeyRange js.Value) *KeyRange {
@@ -49,34 +49,32 @@ func NewKeyRangeOnly(only js.Value) (_ *KeyRange, err error) {
 // Lower returns the lower bound of the key range.
 func (k *KeyRange) Lower() (_ js.Value, err error) {
 	defer exception.Catch(&err)
-	return k.jsKeyRange.Get("lower"), nil
+	return k.Get("lower"), nil
 }
 
 // Upper returns the upper bound of the key range.
 func (k *KeyRange) Upper() (_ js.Value, err error) {
 	defer exception.Catch(&err)
-	return k.jsKeyRange.Get("upper"), nil
+	return k.Get("upper"), nil
 }
 
 // LowerOpen returns false if the lower-bound value is included in the key range.
 func (k *KeyRange) LowerOpen() (_ bool, err error) {
 	defer exception.Catch(&err)
-	return k.jsKeyRange.Get("lowerOpen").Bool(), nil
+	return k.Get("lowerOpen").Bool(), nil
 }
 
 // UpperOpen returns false if the upper-bound value is included in the key range.
 func (k *KeyRange) UpperOpen() (_ bool, err error) {
 	defer exception.Catch(&err)
-	return k.jsKeyRange.Get("upperOpen").Bool(), nil
+	return k.Get("upperOpen").Bool(), nil
 }
 
 // Includes returns a boolean indicating whether a specified key is inside the key range.
 func (k *KeyRange) Includes(key js.Value) (_ bool, err error) {
 	defer exception.Catch(&err)
-	return k.jsKeyRange.Call("includes", key).Bool(), nil
+	return k.Call("includes", key).Bool(), nil
 }
 
 // JSValue implements js.Wrapper
-func (k *KeyRange) JSValue() js.Value {
-	return k.jsKeyRange
-}
+// removed see : https://github.com/golang/go/issues/44006

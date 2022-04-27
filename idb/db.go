@@ -79,10 +79,10 @@ func (db *Database) TransactionWithOptions(options TransactionOptions, objectSto
 
 	optionsMap := make(map[string]interface{})
 	if options.Durability > 0 {
-		optionsMap["durability"] = options.Durability
+		optionsMap["durability"] = options.Durability.String()
 	}
 
-	args := []interface{}{sliceFromStrings(objectStoreNames), options.Mode}
+	args := []interface{}{sliceFromStrings(objectStoreNames), options.Mode.String()}
 	if len(optionsMap) > 0 {
 		args = append(args, optionsMap)
 	}
