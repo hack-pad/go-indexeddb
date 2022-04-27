@@ -41,7 +41,7 @@ func (b *baseObjectStore) CountKey(key js.Value) (_ *UintRequest, err error) {
 // CountRange returns a UintRequest, and, in a separate thread, returns the total number of records that match the provided KeyRange.
 func (b *baseObjectStore) CountRange(keyRange *KeyRange) (_ *UintRequest, err error) {
 	defer exception.Catch(&err)
-	req := wrapRequest(b.txn, b.jsObjectStore.Call("count", keyRange))
+	req := wrapRequest(b.txn, b.jsObjectStore.Call("count", keyRange.Value))
 	return newUintRequest(req), nil
 }
 
@@ -55,7 +55,7 @@ func (b *baseObjectStore) GetAllKeys() (_ *ArrayRequest, err error) {
 // GetAllKeysRange returns an ArrayRequest that retrieves record keys for all objects in the object store or index matching the specified query. If maxCount is 0, retrieves all objects matching the query.
 func (b *baseObjectStore) GetAllKeysRange(query *KeyRange, maxCount uint) (_ *ArrayRequest, err error) {
 	defer exception.Catch(&err)
-	args := []interface{}{query}
+	args := []interface{}{query.Value}
 	if maxCount > 0 {
 		args = append(args, maxCount)
 	}
@@ -92,7 +92,7 @@ func (b *baseObjectStore) OpenCursorKey(key js.Value, direction CursorDirection)
 // OpenCursorRange is the same as OpenCursor, but opens a cursor over the given range instead.
 func (b *baseObjectStore) OpenCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *CursorWithValueRequest, err error) {
 	defer exception.Catch(&err)
-	req := wrapRequest(b.txn, b.jsObjectStore.Call("openCursor", keyRange, direction.String()))
+	req := wrapRequest(b.txn, b.jsObjectStore.Call("openCursor", keyRange.Value, direction.String()))
 	return newCursorWithValueRequest(req), nil
 }
 
@@ -113,6 +113,6 @@ func (b *baseObjectStore) OpenKeyCursorKey(key js.Value, direction CursorDirecti
 // OpenKeyCursorRange is the same as OpenKeyCursor, but opens a cursor over the given key range instead.
 func (b *baseObjectStore) OpenKeyCursorRange(keyRange *KeyRange, direction CursorDirection) (_ *CursorRequest, err error) {
 	defer exception.Catch(&err)
-	req := wrapRequest(b.txn, b.jsObjectStore.Call("openKeyCursor", keyRange, direction.String()))
+	req := wrapRequest(b.txn, b.jsObjectStore.Call("openKeyCursor", keyRange.Value, direction.String()))
 	return newCursorRequest(req), nil
 }
