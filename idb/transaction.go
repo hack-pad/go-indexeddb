@@ -51,8 +51,7 @@ func (m TransactionMode) String() string {
 	}
 }
 
-// JSValue implements js.Wrapper
-func (m TransactionMode) JSValue() js.Value {
+func (m TransactionMode) jsValue() js.Value {
 	return modeCache.Value(m.String())
 }
 
@@ -90,8 +89,7 @@ func (d TransactionDurability) String() string {
 	}
 }
 
-// JSValue implements js.Wrapper
-func (d TransactionDurability) JSValue() js.Value {
+func (d TransactionDurability) jsValue() js.Value {
 	return durabilityCache.Value(d.String())
 }
 

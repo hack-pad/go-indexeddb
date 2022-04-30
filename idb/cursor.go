@@ -6,10 +6,12 @@ import (
 	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
+	"github.com/hack-pad/go-indexeddb/idb/internal/jscache"
 )
 
 var (
-	jsObjectStore = js.Global().Get("IDBObjectStore")
+	jsObjectStore        = js.Global().Get("IDBObjectStore")
+	cursorDirectionCache jscache.Strings
 )
 
 // CursorDirection is the direction of traversal of the cursor
@@ -50,6 +52,10 @@ func (d CursorDirection) String() string {
 	default:
 		return "next"
 	}
+}
+
+func (d CursorDirection) jsValue() js.Value {
+	return cursorDirectionCache.Value(d.String())
 }
 
 // Cursor represents a cursor for traversing or iterating over multiple records in a Database
