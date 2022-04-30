@@ -7,4 +7,11 @@ The primary focus is to align with the IndexedDB spec, followed by ease of use.
 
 To get started, get the global indexedDB instance with idb.Global(). See the [reference][] for examples and full documentation.
 
+```bash
+go get github.com/hack-pad/go-indexeddb@latest
+```
+```go
+import "github.com/hack-pad/go-indexeddb/idb"
+```
+
 [reference]: https://pkg.go.dev/github.com/hack-pad/go-indexeddb/idb
