@@ -31,6 +31,6 @@ jobs:
     - uses: actions/setup-go@v3
       with:
         go-version: ${{ matrix.go }}
-        check_latest: true
+        check-latest: true
     - name: Test
       run: make test
