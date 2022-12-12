@@ -55,7 +55,7 @@ func (d CursorDirection) String() string {
 	}
 }
 
-func (d CursorDirection) jsValue() js.Value {
+func (d CursorDirection) jsValue() safejs.Value {
 	return cursorDirectionCache.Value(d.String())
 }
 

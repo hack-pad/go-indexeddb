@@ -52,7 +52,7 @@ func (m TransactionMode) String() string {
 	}
 }
 
-func (m TransactionMode) jsValue() js.Value {
+func (m TransactionMode) jsValue() safejs.Value {
 	return modeCache.Value(m.String())
 }
 
@@ -90,7 +90,7 @@ func (d TransactionDurability) String() string {
 	}
 }
 
-func (d TransactionDurability) jsValue() js.Value {
+func (d TransactionDurability) jsValue() safejs.Value {
 	return durabilityCache.Value(d.String())
 }
 
