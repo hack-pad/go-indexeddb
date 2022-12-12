@@ -4,8 +4,6 @@
 package idb
 
 import (
-	"syscall/js"
-
 	"github.com/hack-pad/safejs"
 )
 
@@ -80,7 +78,7 @@ func (b *baseObjectStore) GetAllKeysRange(query *KeyRange, maxCount uint) (*Arra
 }
 
 // Get returns a Request, and, in a separate thread, returns the objects selected by the specified key. This is for retrieving specific records from an object store or index.
-func (b *baseObjectStore) Get(key js.Value) (*Request, error) {
+func (b *baseObjectStore) Get(key safejs.Value) (*Request, error) {
 	reqValue, err := b.jsObjectStore.Call("get", key)
 	if err != nil {
 		return nil, err
@@ -89,7 +87,7 @@ func (b *baseObjectStore) Get(key js.Value) (*Request, error) {
 }
 
 // GetKey returns a Request, and, in a separate thread retrieves and returns the record key for the object matching the specified parameter.
-func (b *baseObjectStore) GetKey(value js.Value) (*Request, error) {
+func (b *baseObjectStore) GetKey(value safejs.Value) (*Request, error) {
 	reqValue, err := b.jsObjectStore.Call("getKey", value)
 	if err != nil {
 		return nil, err
@@ -108,7 +106,7 @@ func (b *baseObjectStore) OpenCursor(direction CursorDirection) (*CursorWithValu
 }
 
 // OpenCursorKey is the same as OpenCursor, but opens a cursor over the given key instead.
-func (b *baseObjectStore) OpenCursorKey(key js.Value, direction CursorDirection) (*CursorWithValueRequest, error) {
+func (b *baseObjectStore) OpenCursorKey(key safejs.Value, direction CursorDirection) (*CursorWithValueRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("openCursor", key, direction.jsValue())
 	if err != nil {
 		return nil, err
@@ -129,7 +127,7 @@ func (b *baseObjectStore) OpenCursorRange(keyRange *KeyRange, direction CursorDi
 
 // OpenKeyCursor returns a CursorRequest, and, in a separate thread, returns a new Cursor. Used for iterating through all keys in an object store or index.
 func (b *baseObjectStore) OpenKeyCursor(direction CursorDirection) (*CursorRequest, error) {
-	reqValue, err := b.jsObjectStore.Call("openKeyCursor", js.Null(), direction.jsValue())
+	reqValue, err := b.jsObjectStore.Call("openKeyCursor", safejs.Null(), direction.jsValue())
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +136,7 @@ func (b *baseObjectStore) OpenKeyCursor(direction CursorDirection) (*CursorReque
 }
 
 // OpenKeyCursorKey is the same as OpenKeyCursor, but opens a cursor over the given key instead.
-func (b *baseObjectStore) OpenKeyCursorKey(key js.Value, direction CursorDirection) (*CursorRequest, error) {
+func (b *baseObjectStore) OpenKeyCursorKey(key safejs.Value, direction CursorDirection) (*CursorRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("openKeyCursor", key, direction.jsValue())
 	if err != nil {
 		return nil, err

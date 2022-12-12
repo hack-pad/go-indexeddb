@@ -95,12 +95,12 @@ func (i *Index) GetAllKeysRange(query *KeyRange, maxCount uint) (*ArrayRequest, 
 
 // Get returns a Request, and, in a separate thread, returns objects selected by the specified key. This is for retrieving specific records from an index.
 func (i *Index) Get(key js.Value) (*Request, error) {
-	return i.base.Get(key)
+	return i.base.Get(safejs.Safe(key))
 }
 
 // GetKey returns a Request, and, in a separate thread retrieves and returns the record key for the object matching the specified parameter.
 func (i *Index) GetKey(value js.Value) (*Request, error) {
-	return i.base.GetKey(value)
+	return i.base.GetKey(safejs.Safe(value))
 }
 
 // OpenCursor returns a CursorWithValueRequest, and, in a separate thread, returns a new CursorWithValue. Used for iterating through an index by primary key with a cursor.
@@ -110,7 +110,7 @@ func (i *Index) OpenCursor(direction CursorDirection) (*CursorWithValueRequest, 
 
 // OpenCursorKey is the same as OpenCursor, but opens a cursor over the given key instead.
 func (i *Index) OpenCursorKey(key js.Value, direction CursorDirection) (*CursorWithValueRequest, error) {
-	return i.base.OpenCursorKey(key, direction)
+	return i.base.OpenCursorKey(safejs.Safe(key), direction)
 }
 
 // OpenCursorRange is the same as OpenCursor, but opens a cursor over the given range instead.
@@ -125,7 +125,7 @@ func (i *Index) OpenKeyCursor(direction CursorDirection) (*CursorRequest, error)
 
 // OpenKeyCursorKey is the same as OpenKeyCursor, but opens a cursor over the given key instead.
 func (i *Index) OpenKeyCursorKey(key js.Value, direction CursorDirection) (*CursorRequest, error) {
-	return i.base.OpenKeyCursorKey(key, direction)
+	return i.base.OpenKeyCursorKey(safejs.Safe(key), direction)
 }
 
 // OpenKeyCursorRange is the same as OpenKeyCursor, but opens a cursor over the given key range instead.
