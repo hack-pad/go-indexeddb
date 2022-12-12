@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package idb
@@ -9,6 +10,7 @@ import (
 	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
+	"github.com/hack-pad/safejs"
 )
 
 var (
@@ -17,19 +19,19 @@ var (
 )
 
 var (
-	jsIDBRequest = js.Global().Get("IDBRequest")
-	jsIDBIndex   = js.Global().Get("IDBIndex")
+	jsIDBRequest = safejs.Must(safejs.Global().Get("IDBRequest"))
+	jsIDBIndex   = safejs.Must(safejs.Global().Get("IDBIndex"))
 )
 
 // Request provides access to results of asynchronous requests to databases and database objects
 // using event listeners. Each reading and writing operation on a database is done using a request.
 type Request struct {
 	txn       *Transaction
-	jsRequest js.Value
+	jsRequest safejs.Value
 }
 
-func wrapRequest(txn *Transaction, jsRequest js.Value) *Request {
-	if !jsRequest.InstanceOf(jsIDBRequest) {
+func wrapRequest(txn *Transaction, jsRequest safejs.Value) *Request {
+	if isInstance, err := jsRequest.InstanceOf(jsIDBRequest); !isInstance || err != nil {
 		panic("Invalid JS request type")
 	}
 	if txn == nil {
@@ -43,38 +45,47 @@ func wrapRequest(txn *Transaction, jsRequest js.Value) *Request {
 
 // Source returns the source of the request, such as an Index or an ObjectStore. If no source exists (such as when calling Factory.Open), it returns nil for both.
 func (r *Request) Source() (objectStore *ObjectStore, index *Index, err error) {
-	defer exception.Catch(&err)
-	jsSource := r.jsRequest.Get("source")
-	if jsSource.InstanceOf(jsObjectStore) {
+	jsSource, err := r.jsRequest.Get("source")
+	if err != nil {
+		return
+	}
+	if isInstance, _ := jsSource.InstanceOf(jsObjectStore); isInstance {
 		objectStore = wrapObjectStore(r.txn, jsSource)
-	} else if jsSource.InstanceOf(jsIDBIndex) {
+	} else if isInstance, _ := jsSource.InstanceOf(jsIDBIndex); isInstance {
 		index = wrapIndex(r.txn, jsSource)
 	}
 	return
 }
 
+func (r *Request) safeResult() (safejs.Value, error) {
+	return r.jsRequest.Get("result")
+}
+
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
-func (r *Request) Result() (_ js.Value, err error) {
-	defer exception.Catch(&err)
-	return r.jsRequest.Get("result"), nil
+func (r *Request) Result() (js.Value, error) {
+	value, err := r.safeResult()
+	return safejs.Unsafe(value), err
 }
 
 // Err returns an error in the event of an unsuccessful request, indicating what went wrong.
 func (r *Request) Err() (err error) {
-	defer exception.Catch(&err)
-	jsErr := r.jsRequest.Get("error")
-	if jsErr.Truthy() {
-		return js.Error{Value: jsErr}
+	jsErr, err := r.jsRequest.Get("error")
+	if err != nil {
+		return err
+	}
+	if truthy, err := jsErr.Truthy(); err != nil {
+		return err
+	} else if truthy {
+		return js.Error{Value: safejs.Unsafe(jsErr)}
 	}
 	return nil
 }
 
-// Await waits for success or failure, then returns the results.
-func (r *Request) Await(ctx context.Context) (result js.Value, err error) {
+func (r *Request) safeAwait(ctx context.Context) (result safejs.Value, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	r.Listen(ctx, func() {
-		result, err = r.Result()
+		result, err = r.safeResult()
 		cancel()
 	}, func() {
 		err = r.Err()
@@ -84,10 +95,19 @@ func (r *Request) Await(ctx context.Context) (result js.Value, err error) {
 	return
 }
 
+// Await waits for success or failure, then returns the results.
+func (r *Request) Await(ctx context.Context) (js.Value, error) {
+	result, err := r.safeAwait(ctx)
+	return safejs.Unsafe(result), err
+}
+
 // ReadyState returns the state of the request. Every request starts in the pending state. The state changes to done when the request completes successfully or when an error occurs.
-func (r *Request) ReadyState() (_ string, err error) {
-	defer exception.Catch(&err)
-	return r.jsRequest.Get("readyState").String(), nil
+func (r *Request) ReadyState() (string, error) {
+	readyState, err := r.jsRequest.Get("readyState")
+	if err != nil {
+		return "", err
+	}
+	return readyState.String()
 }
 
 // Transaction returns the transaction for the request. This can return nil for certain requests, for example those returned from Factory.Open unless an upgrade is needed. (You're just connecting to a database, so there is no transaction to return).
@@ -143,10 +163,16 @@ func (r *Request) listen(ctx context.Context, success, failed func()) {
 			cancel()
 			return nil
 		})
-		r.jsRequest.Call(addEventListener, "error", errFunc)
+		_, err := r.jsRequest.Call(addEventListener, "error", errFunc)
+		if err != nil {
+			panic(err)
+		}
 		go func() {
 			<-ctx.Done()
-			r.jsRequest.Call(removeEventListener, "error", errFunc)
+			_, err := r.jsRequest.Call(removeEventListener, "error", errFunc)
+			if err != nil {
+				panic(err)
+			}
 			errFunc.Release()
 		}()
 	}
@@ -157,10 +183,16 @@ func (r *Request) listen(ctx context.Context, success, failed func()) {
 			// don't cancel ctx here, need to allow multiple values for cursors
 			return nil
 		})
-		r.jsRequest.Call(addEventListener, "success", successFunc)
+		_, err := r.jsRequest.Call(addEventListener, "success", successFunc)
+		if err != nil {
+			panic(err)
+		}
 		go func() {
 			<-ctx.Done()
-			r.jsRequest.Call(removeEventListener, "success", successFunc)
+			_, err := r.jsRequest.Call(removeEventListener, "success", successFunc)
+			if err != nil {
+				panic(err)
+			}
 			successFunc.Release()
 		}()
 	}
@@ -184,20 +216,22 @@ func newUintRequest(req *Request) *UintRequest {
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (u *UintRequest) Result() (uint, error) {
-	result, err := u.Request.Result()
+	result, err := u.Request.safeResult()
 	if err != nil {
 		return 0, err
 	}
-	return uint(result.Int()), nil
+	value, err := result.Int()
+	return uint(value), err
 }
 
 // Await waits for success or failure, then returns the results.
 func (u *UintRequest) Await(ctx context.Context) (uint, error) {
-	result, err := u.Request.Await(ctx)
+	result, err := u.Request.safeAwait(ctx)
 	if err != nil {
 		return 0, err
 	}
-	return uint(result.Int()), nil
+	value, err := result.Int()
+	return uint(value), err
 }
 
 // ArrayRequest is a Request that retrieves an array of js.Values
@@ -211,28 +245,28 @@ func newArrayRequest(req *Request) *ArrayRequest {
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (a *ArrayRequest) Result() ([]js.Value, error) {
-	result, err := a.Request.Result()
+	result, err := a.Request.safeResult()
 	if err != nil {
 		return nil, err
 	}
 	var values []js.Value
-	err = iterArray(result, func(i int, value js.Value) bool {
-		values = append(values, value)
-		return true
+	err = iterArray(result, func(i int, value safejs.Value) (bool, error) {
+		values = append(values, safejs.Unsafe(value))
+		return true, nil
 	})
 	return values, err
 }
 
 // Await waits for success or failure, then returns the results.
 func (a *ArrayRequest) Await(ctx context.Context) ([]js.Value, error) {
-	result, err := a.Request.Await(ctx)
+	result, err := a.Request.safeAwait(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var values []js.Value
-	err = iterArray(result, func(i int, value js.Value) bool {
-		values = append(values, value)
-		return true
+	err = iterArray(result, func(i int, value safejs.Value) (bool, error) {
+		values = append(values, safejs.Unsafe(value))
+		return true, nil
 	})
 	return values, err
 }
@@ -251,7 +285,7 @@ func (a *AckRequest) Result() {} // no-op
 
 // Await waits for success or failure, then returns the results.
 func (a *AckRequest) Await(ctx context.Context) error {
-	_, err := a.Request.Await(ctx)
+	_, err := a.Request.safeAwait(ctx)
 	return err
 }
 
@@ -259,7 +293,7 @@ func cursorIter(ctx context.Context, req *Request, iter func(*Cursor) error) err
 	ctx, cancel := context.WithCancel(ctx)
 	var returnErr error
 	req.listen(ctx, func() {
-		jsCursor, err := req.Result()
+		jsCursor, err := req.safeResult()
 		if err != nil {
 			returnErr = err
 			cancel()
@@ -314,9 +348,8 @@ func (c *CursorRequest) Iter(ctx context.Context, iter func(*Cursor) error) erro
 }
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
-func (c *CursorRequest) Result() (_ *Cursor, err error) {
-	defer exception.Catch(&err)
-	result, err := c.Request.Result()
+func (c *CursorRequest) Result() (*Cursor, error) {
+	result, err := c.Request.safeResult()
 	if err != nil {
 		return nil, err
 	}
@@ -324,9 +357,8 @@ func (c *CursorRequest) Result() (_ *Cursor, err error) {
 }
 
 // Await waits for success or failure, then returns the results.
-func (c *CursorRequest) Await(ctx context.Context) (_ *Cursor, err error) {
-	defer exception.Catch(&err)
-	result, err := c.Request.Await(ctx)
+func (c *CursorRequest) Await(ctx context.Context) (*Cursor, error) {
+	result, err := c.Request.safeAwait(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -350,9 +382,8 @@ func (c *CursorWithValueRequest) Iter(ctx context.Context, iter func(*CursorWith
 }
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
-func (c *CursorWithValueRequest) Result() (_ *CursorWithValue, err error) {
-	defer exception.Catch(&err)
-	result, err := c.Request.Result()
+func (c *CursorWithValueRequest) Result() (*CursorWithValue, error) {
+	result, err := c.Request.safeResult()
 	if err != nil {
 		return nil, err
 	}
@@ -360,9 +391,8 @@ func (c *CursorWithValueRequest) Result() (_ *CursorWithValue, err error) {
 }
 
 // Await waits for success or failure, then returns the results.
-func (c *CursorWithValueRequest) Await(ctx context.Context) (_ *CursorWithValue, err error) {
-	defer exception.Catch(&err)
-	result, err := c.Request.Await(ctx)
+func (c *CursorWithValueRequest) Await(ctx context.Context) (*CursorWithValue, error) {
+	result, err := c.Request.safeAwait(ctx)
 	if err != nil {
 		return nil, err
 	}

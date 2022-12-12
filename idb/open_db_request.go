@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package idb
@@ -21,20 +22,26 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *Ope
 	ctx, cancel := context.WithCancel(ctx)
 	req.ListenSuccess(ctx, func() {
 		defer cancel()
-		jsDB, err := req.Result()
+		jsDB, err := req.safeResult()
 		if err != nil {
 			panic(err)
 		}
-		jsDB.Call(addEventListener, "versionchange", js.FuncOf(func(js.Value, []js.Value) interface{} {
+		_, err = jsDB.Call(addEventListener, "versionchange", js.FuncOf(func(js.Value, []js.Value) interface{} {
 			log.Println("Version change detected, closing DB...")
-			jsDB.Call("close")
+			_, closeErr := jsDB.Call("close")
+			if closeErr != nil {
+				panic(closeErr)
+			}
 			return nil
 		}))
+		if err != nil {
+			panic(err)
+		}
 	})
 	upgrade := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		event := args[0]
 		var err error
-		jsDatabase, err := req.Result()
+		jsDatabase, err := req.safeResult()
 		if err != nil {
 			panic(err)
 		}
@@ -49,10 +56,16 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *Ope
 		}
 		return nil
 	})
-	req.jsRequest.Call(addEventListener, "upgradeneeded", upgrade)
+	_, err := req.jsRequest.Call(addEventListener, "upgradeneeded", upgrade)
+	if err != nil {
+		panic(err)
+	}
 	go func() {
 		<-ctx.Done()
-		req.jsRequest.Call(removeEventListener, "upgradeneeded", upgrade)
+		_, err := req.jsRequest.Call(removeEventListener, "upgradeneeded", upgrade)
+		if err != nil {
+			panic(err)
+		}
 		upgrade.Release()
 	}()
 	return &OpenDBRequest{req}
@@ -60,7 +73,7 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *Ope
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (o *OpenDBRequest) Result() (*Database, error) {
-	db, err := o.Request.Result()
+	db, err := o.Request.safeResult()
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +82,7 @@ func (o *OpenDBRequest) Result() (*Database, error) {
 
 // Await waits for success or failure, then returns the results.
 func (o *OpenDBRequest) Await(ctx context.Context) (*Database, error) {
-	db, err := o.Request.Await(ctx)
+	db, err := o.Request.safeAwait(ctx)
 	if err != nil {
 		return nil, err
 	}

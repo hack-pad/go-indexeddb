@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package idb
@@ -8,12 +9,12 @@ import (
 	"sync"
 	"syscall/js"
 
-	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
+	"github.com/hack-pad/safejs"
 )
 
 // Factory lets applications asynchronously access the indexed databases. A typical program will call Global() to access window.indexedDB.
 type Factory struct {
-	jsFactory js.Value
+	jsFactory safejs.Value
 }
 
 var (
@@ -41,31 +42,40 @@ func Global() *Factory {
 
 // WrapFactory wraps the given IDBFactory object
 func WrapFactory(jsFactory js.Value) (*Factory, error) {
-	return &Factory{jsFactory: jsFactory}, nil
+	return &Factory{
+		jsFactory: safejs.Safe(jsFactory),
+	}, nil
 }
 
 // Open requests to open a connection to a database.
-func (f *Factory) Open(upgradeCtx context.Context, name string, version uint, upgrader Upgrader) (_ *OpenDBRequest, err error) {
-	defer exception.Catch(&err)
-
+func (f *Factory) Open(upgradeCtx context.Context, name string, version uint, upgrader Upgrader) (*OpenDBRequest, error) {
 	args := []interface{}{name}
 	if version > 0 {
 		args = append(args, version)
 	}
-	req := wrapRequest(nil, f.jsFactory.Call("open", args...))
+	reqValue, err := f.jsFactory.Call("open", args...)
+	if err != nil {
+		return nil, err
+	}
+	req := wrapRequest(nil, reqValue)
 	return newOpenDBRequest(upgradeCtx, req, upgrader), nil
 }
 
 // DeleteDatabase requests the deletion of a database.
-func (f *Factory) DeleteDatabase(name string) (_ *AckRequest, err error) {
-	defer exception.Catch(&err)
-	req := wrapRequest(nil, f.jsFactory.Call("deleteDatabase", name))
+func (f *Factory) DeleteDatabase(name string) (*AckRequest, error) {
+	reqValue, err := f.jsFactory.Call("deleteDatabase", name)
+	if err != nil {
+		return nil, err
+	}
+	req := wrapRequest(nil, reqValue)
 	return newAckRequest(req), nil
 }
 
 // CompareKeys compares two keys and returns a result indicating which one is greater in value.
-func (f *Factory) CompareKeys(a, b js.Value) (_ int, err error) {
-	defer exception.Catch(&err)
-	compare := f.jsFactory.Call("cmp", a, b)
-	return compare.Int(), nil
+func (f *Factory) CompareKeys(a, b js.Value) (int, error) {
+	compare, err := f.jsFactory.Call("cmp", a, b)
+	if err != nil {
+		return 0, err
+	}
+	return compare.Int()
 }

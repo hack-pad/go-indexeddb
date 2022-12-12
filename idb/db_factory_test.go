@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package idb
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/assert"
+	"github.com/hack-pad/safejs"
 )
 
 const testDBPrefix = "go-indexeddb-test-"
@@ -19,7 +21,7 @@ func TestGlobal(t *testing.T) {
 	assert.NotPanics(t, func() {
 		dbFactory = Global()
 	})
-	assert.Equal(t, &Factory{js.Global().Get("indexedDB")}, dbFactory)
+	assert.Equal(t, &Factory{safejs.Must(safejs.Global().Get("indexedDB"))}, dbFactory)
 }
 
 func testFactory(tb testing.TB) *Factory {
@@ -50,14 +52,22 @@ func testGetDatabases(tb testing.TB, dbFactory *Factory) []string {
 	fn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		defer fn.Release()
 		arr := args[0]
-		assert.NoError(tb, iterArray(arr, func(i int, value js.Value) (keepGoing bool) {
-			names = append(names, value.Get("name").String())
-			return true
+		assert.NoError(tb, iterArray(safejs.Safe(arr), func(i int, value safejs.Value) (keepGoing bool, visitErr error) {
+			name := safejs.Must(safejs.Must(value.Get("name")).String())
+			names = append(names, name)
+			return true, nil
 		}))
 		close(done)
 		return nil
 	})
-	dbFactory.jsFactory.Call("databases").Call("then", fn)
+	databasesPromise, err := dbFactory.jsFactory.Call("databases")
+	if err != nil {
+		assert.NoError(tb, err)
+	}
+	_, err = databasesPromise.Call("then", fn)
+	if err != nil {
+		assert.NoError(tb, err)
+	}
 	<-done
 	return names
 }

@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package idb
@@ -5,7 +6,7 @@ package idb
 import (
 	"syscall/js"
 
-	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
+	"github.com/hack-pad/safejs"
 )
 
 // IndexOptions contains all options used to create an Index
@@ -21,38 +22,50 @@ type Index struct {
 	base *baseObjectStore // don't embed to avoid generated docs with the wrong receiver type (Index vs *Index)
 }
 
-func wrapIndex(txn *Transaction, jsIndex js.Value) *Index {
+func wrapIndex(txn *Transaction, jsIndex safejs.Value) *Index {
 	return &Index{wrapBaseObjectStore(txn, jsIndex)}
 }
 
 // ObjectStore returns the object store referenced by this index.
-func (i *Index) ObjectStore() (_ *ObjectStore, err error) {
-	defer exception.Catch(&err)
-	return wrapObjectStore(i.base.txn, i.base.jsObjectStore.Get("objectStore")), nil
+func (i *Index) ObjectStore() (*ObjectStore, error) {
+	store, err := i.base.jsObjectStore.Get("objectStore")
+	if err != nil {
+		return nil, err
+	}
+	return wrapObjectStore(i.base.txn, store), nil
 }
 
 // Name returns the name of this index
-func (i *Index) Name() (_ string, err error) {
-	defer exception.Catch(&err)
-	return i.base.jsObjectStore.Get("name").String(), nil
+func (i *Index) Name() (string, error) {
+	name, err := i.base.jsObjectStore.Get("name")
+	if err != nil {
+		return "", err
+	}
+	return name.String()
 }
 
 // KeyPath returns the key path of this index. If js.Null(), this index is not auto-populated.
-func (i *Index) KeyPath() (_ js.Value, err error) {
-	defer exception.Catch(&err)
-	return i.base.jsObjectStore.Get("keyPath"), nil
+func (i *Index) KeyPath() (js.Value, error) {
+	value, err := i.base.jsObjectStore.Get("keyPath")
+	return safejs.Unsafe(value), err
 }
 
 // MultiEntry affects how the index behaves when the result of evaluating the index's key path yields an array. If true, there is one record in the index for each item in an array of keys. If false, then there is one record for each key that is an array.
-func (i *Index) MultiEntry() (_ bool, err error) {
-	defer exception.Catch(&err)
-	return i.base.jsObjectStore.Get("multiEntry").Bool(), nil
+func (i *Index) MultiEntry() (bool, error) {
+	multiEntry, err := i.base.jsObjectStore.Get("multiEntry")
+	if err != nil {
+		return false, err
+	}
+	return multiEntry.Bool()
 }
 
 // Unique indicates this index does not allow duplicate values for a key.
-func (i *Index) Unique() (_ bool, err error) {
-	defer exception.Catch(&err)
-	return i.base.jsObjectStore.Get("unique").Bool(), nil
+func (i *Index) Unique() (bool, error) {
+	unique, err := i.base.jsObjectStore.Get("unique")
+	if err != nil {
+		return false, err
+	}
+	return unique.Bool()
 }
 
 // Count returns a UintRequest, and, in a separate thread, returns the total number of records in the index.
@@ -62,7 +75,7 @@ func (i *Index) Count() (*UintRequest, error) {
 
 // CountKey returns a UintRequest, and, in a separate thread, returns the total number of records that match the provided key.
 func (i *Index) CountKey(key js.Value) (*UintRequest, error) {
-	return i.base.CountKey(key)
+	return i.base.CountKey(safejs.Safe(key))
 }
 
 // CountRange returns a UintRequest, and, in a separate thread, returns the total number of records that match the provided KeyRange.

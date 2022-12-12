@@ -1,11 +1,10 @@
+//go:build js && wasm
 // +build js,wasm
 
 package idb
 
 import (
-	"syscall/js"
-
-	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
+	"github.com/hack-pad/safejs"
 )
 
 func sliceFromStrings(strs []string) []interface{} {
@@ -16,20 +15,33 @@ func sliceFromStrings(strs []string) []interface{} {
 	return values
 }
 
-func stringsFromArray(arr js.Value) (strs []string, err error) {
-	defer exception.Catch(&err)
-	err = iterArray(arr, func(i int, value js.Value) bool {
-		strs = append(strs, value.String())
-		return true
+func stringsFromArray(arr safejs.Value) ([]string, error) {
+	var strs []string
+	iterErr := iterArray(arr, func(i int, value safejs.Value) (bool, error) {
+		str, err := value.String()
+		if err != nil {
+			return false, err
+		}
+		strs = append(strs, str)
+		return true, nil
 	})
-	return
+	return strs, iterErr
 }
 
-func iterArray(arr js.Value, visit func(i int, value js.Value) (keepGoing bool)) (err error) {
-	defer exception.Catch(&err)
-	length := arr.Length()
+func iterArray(arr safejs.Value, visit func(i int, value safejs.Value) (keepGoing bool, visitErr error)) (err error) {
+	length, err := arr.Length()
+	if err != nil {
+		return err
+	}
 	for i := 0; i < length; i++ {
-		visit(i, arr.Index(i))
+		index, err := arr.Index(i)
+		if err != nil {
+			return err
+		}
+		keepGoing, visitErr := visit(i, index)
+		if !keepGoing || visitErr != nil {
+			return visitErr
+		}
 	}
 	return nil
 }
