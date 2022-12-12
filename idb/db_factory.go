@@ -27,11 +27,20 @@ var (
 // Can be called multiple times, will always return the same result (or error if one occurs).
 func Global() *Factory {
 	globalOnce.Do(func() {
-		jsFactory := js.Global().Get("indexedDB")
-		if !jsFactory.Truthy() {
-			globalErr = errors.New("Global JS variable 'indexedDB' is not defined")
+		var jsFactory safejs.Value
+		jsFactory, globalErr = safejs.Global().Get("indexedDB")
+		if globalErr != nil {
+			return
+		}
+		var truthy bool
+		truthy, globalErr = jsFactory.Truthy()
+		if globalErr != nil {
+			return
+		}
+		if truthy {
+			global, globalErr = WrapFactory(safejs.Unsafe(jsFactory))
 		} else {
-			global, globalErr = WrapFactory(jsFactory)
+			globalErr = errors.New("Global JS variable 'indexedDB' is not defined")
 		}
 	})
 	if globalErr != nil {

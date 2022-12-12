@@ -14,10 +14,17 @@ import (
 )
 
 var (
-	supportsTransactionCommit = js.Global().Get("IDBTransaction").Get("prototype").Get("commit").Truthy()
+	supportsTransactionCommit = checkSupportsTransactionCommit()
 
 	errNotInTransaction = errors.New("Not part of a transaction")
 )
+
+func checkSupportsTransactionCommit() bool {
+	idbTransaction := safejs.Must(safejs.Global().Get("IDBTransaction"))
+	prototype := safejs.Must(idbTransaction.Get("prototype"))
+	commit := safejs.Must(prototype.Get("commit"))
+	return safejs.Must(commit.Truthy())
+}
 
 var (
 	modeCache       jscache.Strings
