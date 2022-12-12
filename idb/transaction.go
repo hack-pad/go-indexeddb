@@ -203,17 +203,25 @@ func (t *Transaction) prepareAwait(ctx context.Context) promise.Promise {
 	resolve, reject, prom := promise.NewChan(ctx)
 	ctx, cancel := context.WithCancel(ctx)
 
-	errFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	errFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
 		go reject(t.Err())
 		cancel()
 		return nil
 	})
-	completeFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	if err != nil {
+		reject(err)
+		return nil
+	}
+	completeFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
 		go resolve(nil)
 		cancel()
 		return nil
 	})
-	_, err := t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("error"), errFunc)
+	if err != nil {
+		reject(err)
+		return nil
+	}
+	_, err = t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("error"), errFunc)
 	if err != nil {
 		reject(err)
 		return nil

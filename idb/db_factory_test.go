@@ -48,11 +48,11 @@ func testGetDatabases(tb testing.TB, dbFactory *Factory) []string {
 	tb.Helper()
 	done := make(chan struct{})
 	var names []string
-	var fn js.Func
-	fn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	var fn safejs.Func
+	fn, err := safejs.FuncOf(func(_ safejs.Value, args []safejs.Value) interface{} {
 		defer fn.Release()
 		arr := args[0]
-		assert.NoError(tb, iterArray(safejs.Safe(arr), func(i int, value safejs.Value) (keepGoing bool, visitErr error) {
+		assert.NoError(tb, iterArray(arr, func(_ int, value safejs.Value) (keepGoing bool, visitErr error) {
 			name := safejs.Must(safejs.Must(value.Get("name")).String())
 			names = append(names, name)
 			return true, nil
@@ -60,6 +60,9 @@ func testGetDatabases(tb testing.TB, dbFactory *Factory) []string {
 		close(done)
 		return nil
 	})
+	if err != nil {
+		assert.NoError(tb, err)
+	}
 	databasesPromise, err := dbFactory.jsFactory.Call("databases")
 	if err != nil {
 		assert.NoError(tb, err)

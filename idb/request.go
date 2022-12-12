@@ -157,13 +157,16 @@ func (r *Request) listen(ctx context.Context, success, failed func()) {
 	}
 
 	if failed != nil {
-		errFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		errFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
 			defer exception.CatchHandler(panicHandler)
 			failed()
 			cancel()
 			return nil
 		})
-		_, err := r.jsRequest.Call(addEventListener, "error", errFunc)
+		if err != nil {
+			panic(err)
+		}
+		_, err = r.jsRequest.Call(addEventListener, "error", errFunc)
 		if err != nil {
 			panic(err)
 		}
@@ -177,13 +180,16 @@ func (r *Request) listen(ctx context.Context, success, failed func()) {
 		}()
 	}
 	if success != nil {
-		successFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		successFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
 			defer exception.CatchHandler(panicHandler)
 			success()
 			// don't cancel ctx here, need to allow multiple values for cursors
 			return nil
 		})
-		_, err := r.jsRequest.Call(addEventListener, "success", successFunc)
+		if err != nil {
+			panic(err)
+		}
+		_, err = r.jsRequest.Call(addEventListener, "success", successFunc)
 		if err != nil {
 			panic(err)
 		}

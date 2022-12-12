@@ -7,7 +7,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"syscall/js"
+
+	"github.com/hack-pad/safejs"
 )
 
 // OpenDBRequest provides access to the results of requests to open or delete databases (performed using Factory.open and Factory.DeleteDatabase).
@@ -26,19 +27,19 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *Ope
 		if err != nil {
 			panic(err)
 		}
-		_, err = jsDB.Call(addEventListener, "versionchange", js.FuncOf(func(js.Value, []js.Value) interface{} {
+		_, err = jsDB.Call(addEventListener, "versionchange", safejs.Must(safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
 			log.Println("Version change detected, closing DB...")
 			_, closeErr := jsDB.Call("close")
 			if closeErr != nil {
 				panic(closeErr)
 			}
 			return nil
-		}))
+		})))
 		if err != nil {
 			panic(err)
 		}
 	})
-	upgrade := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	upgrade, err := safejs.FuncOf(func(this safejs.Value, args []safejs.Value) interface{} {
 		event := args[0]
 		var err error
 		jsDatabase, err := req.safeResult()
@@ -46,7 +47,22 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *Ope
 			panic(err)
 		}
 		db := wrapDatabase(jsDatabase)
-		oldVersion, newVersion := event.Get("oldVersion").Int(), event.Get("newVersion").Int()
+		oldVersionValue, err := event.Get("oldVersion")
+		if err != nil {
+			panic(err)
+		}
+		oldVersion, err := oldVersionValue.Int()
+		if err != nil {
+			panic(err)
+		}
+		newVersionValue, err := event.Get("newVersion")
+		if err != nil {
+			panic(err)
+		}
+		newVersion, err := newVersionValue.Int()
+		if err != nil {
+			panic(err)
+		}
 		if oldVersion < 0 || newVersion < 0 {
 			panic(fmt.Errorf("Unexpected negative oldVersion or newVersion: %d, %d", oldVersion, newVersion))
 		}
@@ -56,7 +72,10 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *Ope
 		}
 		return nil
 	})
-	_, err := req.jsRequest.Call(addEventListener, "upgradeneeded", upgrade)
+	if err != nil {
+		panic(err)
+	}
+	_, err = req.jsRequest.Call(addEventListener, "upgradeneeded", upgrade)
 	if err != nil {
 		panic(err)
 	}
