@@ -5,10 +5,20 @@ package idb_test
 
 import (
 	"context"
-	"syscall/js"
-
+	"errors"
 	"github.com/hack-pad/go-indexeddb/idb"
+	"syscall/js"
+	"time"
 )
+
+// dbTimeout is the global timeout for operations with the storage
+// [context.Context].
+const dbTimeout = time.Second
+
+// NewContext builds a context for indexedDb operations.
+func NewContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), dbTimeout)
+}
 
 var (
 	Books = []string{
@@ -48,4 +58,149 @@ func Example() {
 			return nil
 		})
 	}
+}
+
+// Get is a generic helper for getting values from the given [idb.ObjectStore].
+// Only usable by primary key.
+func Get(db *idb.Database, objectStoreName string, key js.Value) (js.Value, error) {
+
+	// Prepare the Transaction
+	txn, err := db.Transaction(idb.TransactionReadOnly, objectStoreName)
+	if err != nil {
+		return js.Undefined(), err
+	}
+	store, err := txn.ObjectStore(objectStoreName)
+	if err != nil {
+		return js.Undefined(), err
+	}
+
+	// Perform the operation
+	getRequest, err := store.Get(key)
+	if err != nil {
+		return js.Undefined(), err
+	}
+
+	// Wait for the operation to return
+	ctx, cancel := NewContext()
+	resultObj, err := getRequest.Await(ctx)
+	cancel()
+	if err != nil {
+		return js.Undefined(), err
+	} else if resultObj.IsUndefined() {
+		return js.Undefined(), errors.New("unable to get from ObjectStore: result is undefined")
+	}
+	return resultObj, nil
+}
+
+// GetIndex is a generic helper for getting values from the given
+// [idb.ObjectStore] using the given [idb.Index].
+func GetIndex(db *idb.Database, objectStoreName,
+	indexName string, key js.Value) (js.Value, error) {
+
+	// Prepare the Transaction
+	txn, err := db.Transaction(idb.TransactionReadOnly, objectStoreName)
+	if err != nil {
+		return js.Undefined(), err
+	}
+	store, err := txn.ObjectStore(objectStoreName)
+	if err != nil {
+		return js.Undefined(), err
+	}
+	idx, err := store.Index(indexName)
+	if err != nil {
+		return js.Undefined(), err
+	}
+
+	// Perform the operation
+	getRequest, err := idx.Get(key)
+	if err != nil {
+		return js.Undefined(), err
+	}
+
+	// Wait for the operation to return
+	ctx, cancel := NewContext()
+	resultObj, err := getRequest.Await(ctx)
+	cancel()
+	if err != nil {
+		return js.Undefined(), err
+	} else if resultObj.IsUndefined() {
+		return js.Undefined(), errors.New("unable to get from ObjectStore: result is undefined")
+	}
+	return resultObj, nil
+}
+
+// Put is a generic helper for putting values into the given [idb.ObjectStore].
+// Equivalent to insert if not exists else update.
+func Put(db *idb.Database, objectStoreName string, value js.Value) (*idb.Request, error) {
+	// Prepare the Transaction
+	txn, err := db.Transaction(idb.TransactionReadWrite, objectStoreName)
+	if err != nil {
+		return nil, err
+	}
+	store, err := txn.ObjectStore(objectStoreName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Perform the operation
+	request, err := store.Put(value)
+	if err != nil {
+		return nil, err
+	}
+
+	// Wait for the operation to return
+	ctx, cancel := NewContext()
+	err = txn.Await(ctx)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+	return request, nil
+}
+
+// Delete is a generic helper for removing values from the given [idb.ObjectStore].
+// Only usable by primary key.
+func Delete(db *idb.Database, objectStoreName string, key js.Value) error {
+	// Prepare the Transaction
+	txn, err := db.Transaction(idb.TransactionReadWrite, objectStoreName)
+	if err != nil {
+		return err
+	}
+	store, err := txn.ObjectStore(objectStoreName)
+	if err != nil {
+		return err
+	}
+
+	// Perform the operation
+	_, err = store.Delete(key)
+	if err != nil {
+		return err
+	}
+
+	// Wait for the operation to return
+	ctx, cancel := NewContext()
+	err = txn.Await(ctx)
+	cancel()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteIndex is a generic helper for removing values from the
+// given [idb.ObjectStore] using the given [idb.Index]. Requires passing
+// in the name of the primary key for the store.
+func DeleteIndex(db *idb.Database, objectStoreName,
+	indexName, pkeyName string, key js.Value) error {
+
+	value, err := GetIndex(db, objectStoreName, indexName, key)
+	if err != nil {
+		return err
+	}
+
+	err = Delete(db, objectStoreName, value.Get(pkeyName))
+	if err != nil {
+		return err
+	}
+	return nil
 }
