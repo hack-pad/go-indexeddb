@@ -1,4 +1,4 @@
-BROWSERTEST_VERSION = v0.3.5
+BROWSERTEST_VERSION = bba38b6
 LINT_VERSION = 1.41.1
 GO_BIN = $(shell printf '%s/bin' "$$(go env GOPATH)")
 
@@ -25,5 +25,5 @@ test-deps:
 
 .PHONY: test
 test: test-deps
-	GOOS=js GOARCH=wasm go test -cover ./...
+	GOOS=js GOARCH=wasm go test -coverprofile=cover.out ./...
 	go test -race ./...
