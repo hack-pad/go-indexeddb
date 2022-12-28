@@ -69,13 +69,13 @@ func (r *Request) Source() (objectStore *ObjectStore, index *Index, err error) {
 	return
 }
 
-func (r *Request) safeResult() (safejs.Value, error) {
+func (r *Request) result() (safejs.Value, error) {
 	return r.jsRequest.Get("result")
 }
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (r *Request) Result() (js.Value, error) {
-	value, err := r.safeResult()
+	value, err := r.result()
 	return safejs.Unsafe(value), err
 }
 
@@ -97,7 +97,7 @@ func (r *Request) safeAwait(ctx context.Context) (result safejs.Value, err error
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	r.Listen(ctx, func() {
-		result, err = r.safeResult()
+		result, err = r.result()
 		cancel()
 	}, func() {
 		err = r.Err()
@@ -234,7 +234,7 @@ func newUintRequest(req *Request) *UintRequest {
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (u *UintRequest) Result() (uint, error) {
-	result, err := u.Request.safeResult()
+	result, err := u.Request.result()
 	if err != nil {
 		return 0, err
 	}
@@ -263,7 +263,7 @@ func newArrayRequest(req *Request) *ArrayRequest {
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (a *ArrayRequest) Result() ([]js.Value, error) {
-	result, err := a.Request.safeResult()
+	result, err := a.Request.result()
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +311,7 @@ func cursorIter(ctx context.Context, req *Request, iter func(*Cursor) error) err
 	ctx, cancel := context.WithCancel(ctx)
 	var returnErr error
 	req.listen(ctx, func() {
-		jsCursor, err := req.safeResult()
+		jsCursor, err := req.result()
 		if err != nil {
 			returnErr = err
 			cancel()
@@ -367,7 +367,7 @@ func (c *CursorRequest) Iter(ctx context.Context, iter func(*Cursor) error) erro
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (c *CursorRequest) Result() (*Cursor, error) {
-	result, err := c.Request.safeResult()
+	result, err := c.Request.result()
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +401,7 @@ func (c *CursorWithValueRequest) Iter(ctx context.Context, iter func(*CursorWith
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (c *CursorWithValueRequest) Result() (*CursorWithValue, error) {
-	result, err := c.Request.safeResult()
+	result, err := c.Request.result()
 	if err != nil {
 		return nil, err
 	}

@@ -23,7 +23,7 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *Ope
 	ctx, cancel := context.WithCancel(ctx)
 	req.ListenSuccess(ctx, func() {
 		defer cancel()
-		jsDB, err := req.safeResult()
+		jsDB, err := req.result()
 		if err != nil {
 			panic(err)
 		}
@@ -46,7 +46,7 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *Ope
 	upgrade, err := safejs.FuncOf(func(this safejs.Value, args []safejs.Value) interface{} {
 		event := args[0]
 		var err error
-		jsDatabase, err := req.safeResult()
+		jsDatabase, err := req.result()
 		if err != nil {
 			panic(err)
 		}
@@ -96,7 +96,7 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *Ope
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.
 func (o *OpenDBRequest) Result() (*Database, error) {
-	db, err := o.Request.safeResult()
+	db, err := o.Request.result()
 	if err != nil {
 		return nil, err
 	}
