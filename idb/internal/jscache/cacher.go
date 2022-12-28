@@ -1,6 +1,7 @@
 //go:build js && wasm
 // +build js,wasm
 
+// Package jscache caches expensive JavaScript results, like string encoding
 package jscache
 
 import (

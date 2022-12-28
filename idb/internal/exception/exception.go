@@ -1,5 +1,7 @@
+//go:build js && wasm
 // +build js,wasm
 
+// Package exception catches panics and handles them as error values
 package exception
 
 import (

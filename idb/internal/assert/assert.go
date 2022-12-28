@@ -1,5 +1,7 @@
+//go:build js && wasm
 // +build js,wasm
 
+// Package assert contains small assertion test functions to assist in writing clean tests.
 package assert
 
 import (

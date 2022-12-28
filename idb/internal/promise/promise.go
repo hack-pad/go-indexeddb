@@ -1,5 +1,7 @@
+//go:build js && wasm
 // +build js,wasm
 
+// Package promise provides JavaScript Promise-like implementations
 package promise
 
 // Promise is a JS-like promise interface. Enables alternative implementations, like Go channels.
