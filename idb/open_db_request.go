@@ -105,7 +105,7 @@ func (o *OpenDBRequest) Result() (*Database, error) {
 
 // Await waits for success or failure, then returns the results.
 func (o *OpenDBRequest) Await(ctx context.Context) (*Database, error) {
-	db, err := o.Request.safeAwait(ctx)
+	db, err := o.Request.await(ctx)
 	if err != nil {
 		return nil, err
 	}
