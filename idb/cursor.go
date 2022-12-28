@@ -11,9 +11,17 @@ import (
 )
 
 var (
-	jsObjectStore        = safejs.Must(safejs.Global().Get("IDBObjectStore"))
+	jsObjectStore        safejs.Value
 	cursorDirectionCache jscache.Strings
 )
+
+func init() {
+	var err error
+	jsObjectStore, err = safejs.Global().Get("IDBObjectStore")
+	if err != nil {
+		panic(err)
+	}
+}
 
 // CursorDirection is the direction of traversal of the cursor
 type CursorDirection int

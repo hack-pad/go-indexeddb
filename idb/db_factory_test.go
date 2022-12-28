@@ -21,7 +21,10 @@ func TestGlobal(t *testing.T) {
 	assert.NotPanics(t, func() {
 		dbFactory = Global()
 	})
-	assert.Equal(t, &Factory{safejs.Must(safejs.Global().Get("indexedDB"))}, dbFactory)
+
+	indexedDB, err := safejs.Global().Get("indexedDB")
+	assert.NoError(t, err)
+	assert.Equal(t, &Factory{indexedDB}, dbFactory)
 }
 
 func testFactory(tb testing.TB) *Factory {
@@ -53,7 +56,10 @@ func testGetDatabases(tb testing.TB, dbFactory *Factory) []string {
 		defer fn.Release()
 		arr := args[0]
 		assert.NoError(tb, iterArray(arr, func(_ int, value safejs.Value) (keepGoing bool, visitErr error) {
-			name := safejs.Must(safejs.Must(value.Get("name")).String())
+			nameValue, err := value.Get("name")
+			assert.NoError(tb, err)
+			name, err := nameValue.String()
+			assert.NoError(tb, err)
 			names = append(names, name)
 			return true, nil
 		}))

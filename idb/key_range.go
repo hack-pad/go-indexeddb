@@ -10,8 +10,16 @@ import (
 )
 
 var (
-	jsIDBKeyRange = safejs.Must(safejs.Global().Get("IDBKeyRange"))
+	jsIDBKeyRange safejs.Value
 )
+
+func init() {
+	var err error
+	jsIDBKeyRange, err = safejs.Global().Get("IDBKeyRange")
+	if err != nil {
+		panic(err)
+	}
+}
 
 // KeyRange represents a continuous interval over some data type that is used for keys. Records can be retrieved from ObjectStore and Index objects using keys or a range of keys.
 type KeyRange struct {

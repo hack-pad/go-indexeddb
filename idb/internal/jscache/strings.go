@@ -8,8 +8,19 @@ import (
 )
 
 var (
-	jsReflectGet = safejs.Must(safejs.Must(safejs.Global().Get("Reflect")).Get("get"))
+	jsReflectGet safejs.Value
 )
+
+func init() {
+	jsReflect, err := safejs.Global().Get("Reflect")
+	if err != nil {
+		panic(err)
+	}
+	jsReflectGet, err = jsReflect.Get("get")
+	if err != nil {
+		panic(err)
+	}
+}
 
 // Strings caches encoding strings as safejs.Value's.
 // String encoding today is quite CPU intensive, so caching commonly used strings helps with performance.

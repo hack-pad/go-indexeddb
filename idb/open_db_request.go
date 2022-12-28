@@ -27,14 +27,18 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) *Ope
 		if err != nil {
 			panic(err)
 		}
-		_, err = jsDB.Call(addEventListener, "versionchange", safejs.Must(safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
+		versionChange, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
 			log.Println("Version change detected, closing DB...")
 			_, closeErr := jsDB.Call("close")
 			if closeErr != nil {
 				panic(closeErr)
 			}
 			return nil
-		})))
+		})
+		if err != nil {
+			panic(err)
+		}
+		_, err = jsDB.Call(addEventListener, "versionchange", versionChange)
 		if err != nil {
 			panic(err)
 		}

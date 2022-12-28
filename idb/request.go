@@ -19,9 +19,21 @@ var (
 )
 
 var (
-	jsIDBRequest = safejs.Must(safejs.Global().Get("IDBRequest"))
-	jsIDBIndex   = safejs.Must(safejs.Global().Get("IDBIndex"))
+	jsIDBRequest safejs.Value
+	jsIDBIndex   safejs.Value
 )
+
+func init() {
+	var err error
+	jsIDBRequest, err = safejs.Global().Get("IDBRequest")
+	if err != nil {
+		panic(err)
+	}
+	jsIDBIndex, err = safejs.Global().Get("IDBIndex")
+	if err != nil {
+		panic(err)
+	}
+}
 
 // Request provides access to results of asynchronous requests to databases and database objects
 // using event listeners. Each reading and writing operation on a database is done using a request.

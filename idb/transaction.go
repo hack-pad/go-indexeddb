@@ -20,10 +20,20 @@ var (
 )
 
 func checkSupportsTransactionCommit() bool {
-	idbTransaction := safejs.Must(safejs.Global().Get("IDBTransaction"))
-	prototype := safejs.Must(idbTransaction.Get("prototype"))
-	commit := safejs.Must(prototype.Get("commit"))
-	return safejs.Must(commit.Truthy())
+	idbTransaction, err := safejs.Global().Get("IDBTransaction")
+	if err != nil {
+		return false
+	}
+	prototype, err := idbTransaction.Get("prototype")
+	if err != nil {
+		return false
+	}
+	commit, err := prototype.Get("commit")
+	if err != nil {
+		return false
+	}
+	supported, err := commit.Truthy()
+	return supported && err == nil
 }
 
 var (
