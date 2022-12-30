@@ -35,7 +35,7 @@ jobs:
     - name: Publish Test Coverage
       run: |
         set -ex
-		go install github.com/mattn/goveralls@v0.0.11
-		goveralls -coverprofile="cover.out" -service=github
+        go install github.com/mattn/goveralls@v0.0.11
+        goveralls -coverprofile="cover.out" -service=github
       env:
         COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
