@@ -1,4 +1,4 @@
-# go-indexeddb    [![Go Reference](https://pkg.go.dev/badge/github.com/hack-pad/go-indexeddb/idb.svg)][reference] [![CI](https://github.com/hack-pad/go-indexeddb/actions/workflows/ci.yml/badge.svg)](https://github.com/hack-pad/go-indexeddb/actions/workflows/ci.yml)
+# go-indexeddb    [![Go Reference](https://pkg.go.dev/badge/github.com/hack-pad/go-indexeddb/idb.svg)][reference] [![CI](https://github.com/hack-pad/go-indexeddb/actions/workflows/ci.yml/badge.svg)](https://github.com/hack-pad/go-indexeddb/actions/workflows/ci.yml) [![Coverage Status](https://coveralls.io/repos/github/hack-pad/go-indexeddb/badge.svg?branch=main)](https://coveralls.io/github/hack-pad/go-indexeddb?branch=main)
 
 An IndexedDB driver with bindings for Go code compiled to WebAssembly.
 
