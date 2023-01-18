@@ -22,63 +22,19 @@ type Upgrader func(db *Database, oldVersion, newVersion uint) error
 func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) (*OpenDBRequest, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	listenSuccess := func() error {
+	err := req.ListenSuccess(ctx, func() {
 		defer cancel()
-		jsDB, err := req.result()
-		if err != nil {
-			return err
-		}
-		versionChange, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
-			log.Println("Version change detected, closing DB...")
-			_, closeErr := jsDB.Call("close")
-			if closeErr != nil {
-				log.Println("Error closing DB:", closeErr)
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		_, err = jsDB.Call(addEventListener, "versionchange", versionChange)
-		return err
-	}
-	req.ListenSuccess(ctx, func() {
-		err := listenSuccess()
+		err := openDBListenSuccess(req)
 		if err != nil {
 			panic(err)
 		}
 	})
-
-	upgradeNeeded := func(args []safejs.Value) error {
-		event := args[0]
-		jsDatabase, err := req.result()
-		if err != nil {
-			return err
-		}
-		db := wrapDatabase(jsDatabase)
-		oldVersionValue, err := event.Get("oldVersion")
-		if err != nil {
-			return err
-		}
-		oldVersion, err := oldVersionValue.Int()
-		if err != nil {
-			return err
-		}
-		newVersionValue, err := event.Get("newVersion")
-		if err != nil {
-			return err
-		}
-		newVersion, err := newVersionValue.Int()
-		if err != nil {
-			return err
-		}
-		if oldVersion < 0 || newVersion < 0 {
-			return fmt.Errorf("Unexpected negative oldVersion or newVersion: %d, %d", oldVersion, newVersion)
-		}
-		return upgrader(db, uint(oldVersion), uint(newVersion))
+	if err != nil {
+		return nil, err
 	}
+
 	upgrade, err := safejs.FuncOf(func(this safejs.Value, args []safejs.Value) interface{} {
-		err := upgradeNeeded(args)
+		err := openDBUpgradeNeeded(req, upgrader, args)
 		if err != nil {
 			panic(err)
 		}
@@ -100,6 +56,55 @@ func newOpenDBRequest(ctx context.Context, req *Request, upgrader Upgrader) (*Op
 		upgrade.Release()
 	}()
 	return &OpenDBRequest{req}, nil
+}
+
+func openDBListenSuccess(req *Request) error {
+	jsDB, err := req.result()
+	if err != nil {
+		return err
+	}
+	versionChange, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
+		log.Println("Version change detected, closing DB...")
+		_, closeErr := jsDB.Call("close")
+		if closeErr != nil {
+			log.Println("Error closing DB:", closeErr)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	_, err = jsDB.Call(addEventListener, "versionchange", versionChange)
+	return err
+}
+
+func openDBUpgradeNeeded(req *Request, upgrader Upgrader, args []safejs.Value) error {
+	event := args[0]
+	jsDatabase, err := req.result()
+	if err != nil {
+		return err
+	}
+	db := wrapDatabase(jsDatabase)
+	oldVersionValue, err := event.Get("oldVersion")
+	if err != nil {
+		return err
+	}
+	oldVersion, err := oldVersionValue.Int()
+	if err != nil {
+		return err
+	}
+	newVersionValue, err := event.Get("newVersion")
+	if err != nil {
+		return err
+	}
+	newVersion, err := newVersionValue.Int()
+	if err != nil {
+		return err
+	}
+	if oldVersion < 0 || newVersion < 0 {
+		return fmt.Errorf("Unexpected negative oldVersion or newVersion: %d, %d", oldVersion, newVersion)
+	}
+	return upgrader(db, uint(oldVersion), uint(newVersion))
 }
 
 // Result returns the result of the request. If the request failed and the result is not available, an error is returned.

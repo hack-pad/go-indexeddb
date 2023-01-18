@@ -93,18 +93,21 @@ func (r *Request) Err() (err error) {
 	return nil
 }
 
-func (r *Request) await(ctx context.Context) (result safejs.Value, err error) {
+func (r *Request) await(ctx context.Context) (result safejs.Value, awaitErr error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	r.Listen(ctx, func() {
-		result, err = r.result()
+	listenErr := r.Listen(ctx, func() {
+		result, awaitErr = r.result()
 		cancel()
 	}, func() {
-		err = r.Err()
+		awaitErr = r.Err()
 		cancel()
 	})
+	if listenErr != nil {
+		return result, listenErr
+	}
 	<-ctx.Done()
-	return
+	return result, awaitErr
 }
 
 // Await waits for success or failure, then returns the results.
@@ -131,17 +134,17 @@ func (r *Request) Transaction() (*Transaction, error) {
 }
 
 // ListenSuccess invokes the callback when the request succeeds
-func (r *Request) ListenSuccess(ctx context.Context, success func()) {
-	r.Listen(ctx, success, nil)
+func (r *Request) ListenSuccess(ctx context.Context, success func()) error {
+	return r.Listen(ctx, success, nil)
 }
 
 // ListenError invokes the callback when the request fails
-func (r *Request) ListenError(ctx context.Context, failed func()) {
-	r.Listen(ctx, nil, failed)
+func (r *Request) ListenError(ctx context.Context, failed func()) error {
+	return r.Listen(ctx, nil, failed)
 }
 
 // Listen invokes the success callback when the request succeeds and failed when it fails.
-func (r *Request) Listen(ctx context.Context, success, failed func()) {
+func (r *Request) Listen(ctx context.Context, success, failed func()) error {
 	if success != nil {
 		// by default, only listen for 1 value
 		var cancel context.CancelFunc
@@ -152,11 +155,11 @@ func (r *Request) Listen(ctx context.Context, success, failed func()) {
 			originalSuccess()
 		}
 	}
-	r.listen(ctx, success, failed)
+	return r.listen(ctx, success, failed)
 }
 
 // listen is like Listen, but doesn't cancel the context after success is called
-func (r *Request) listen(ctx context.Context, success, failed func()) {
+func (r *Request) listen(ctx context.Context, success, failed func()) error {
 	ctx, cancel := context.WithCancel(ctx)
 	panicHandler := func(err error) {
 		log.Println("Failed resolving request results:", err)
@@ -214,6 +217,7 @@ func (r *Request) listen(ctx context.Context, success, failed func()) {
 			successFunc.Release()
 		}()
 	}
+	return nil
 }
 
 func ignorePanic(fn func()) {
@@ -310,7 +314,7 @@ func (a *AckRequest) Await(ctx context.Context) error {
 func cursorIter(ctx context.Context, req *Request, iter func(*Cursor) error) error {
 	ctx, cancel := context.WithCancel(ctx)
 	var returnErr error
-	req.listen(ctx, func() {
+	listenErr := req.listen(ctx, func() {
 		jsCursor, err := req.result()
 		if err != nil {
 			returnErr = err
@@ -345,6 +349,9 @@ func cursorIter(ctx context.Context, req *Request, iter func(*Cursor) error) err
 		}
 		cancel()
 	})
+	if listenErr != nil {
+		return listenErr
+	}
 	<-ctx.Done()
 	return returnErr
 }

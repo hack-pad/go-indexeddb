@@ -91,7 +91,7 @@ func TestListen(t *testing.T) {
 	_, req := testRequest(t)
 
 	var successCount int64
-	req.Listen(context.Background(), func() {
+	err := req.Listen(context.Background(), func() {
 		atomic.AddInt64(&successCount, 1)
 		result, err := req.Result()
 		assert.NoError(t, err)
@@ -99,6 +99,7 @@ func TestListen(t *testing.T) {
 	}, func() {
 		t.Error("Failed should not be called:", req.Err())
 	})
+	assert.NoError(t, err)
 
 	assert.Eventually(t, func(ctx context.Context) bool {
 		return atomic.LoadInt64(&successCount) > 0
