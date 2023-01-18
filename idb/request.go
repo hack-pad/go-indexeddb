@@ -6,10 +6,10 @@ package idb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"syscall/js"
 
-	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
 	"github.com/hack-pad/safejs"
 )
 
@@ -173,7 +173,7 @@ func (r *Request) listen(ctx context.Context, success, failed func()) error {
 
 	if failed != nil {
 		errFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
-			defer exception.CatchHandler(panicHandler)
+			defer catchHandler(panicHandler)
 			failed()
 			cancel()
 			return nil
@@ -196,7 +196,7 @@ func (r *Request) listen(ctx context.Context, success, failed func()) error {
 	}
 	if success != nil {
 		successFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
-			defer exception.CatchHandler(panicHandler)
+			defer catchHandler(panicHandler)
 			success()
 			// don't cancel ctx here, need to allow multiple values for cursors
 			return nil
@@ -218,6 +218,27 @@ func (r *Request) listen(ctx context.Context, success, failed func()) error {
 		}()
 	}
 	return nil
+}
+
+func catchHandler(fn func(err error)) {
+	err := recoveryToError(recover())
+	if err != nil {
+		fn(err)
+	}
+}
+
+func recoveryToError(r interface{}) error {
+	if r == nil {
+		return nil
+	}
+	switch val := r.(type) {
+	case error:
+		return val
+	case js.Value:
+		return js.Error{Value: val}
+	default:
+		return fmt.Errorf("%+v", val)
+	}
 }
 
 func ignorePanic(fn func()) {
