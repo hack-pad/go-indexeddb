@@ -67,7 +67,7 @@ func (f *Factory) Open(upgradeCtx context.Context, name string, version uint, up
 		return nil, err
 	}
 	req := wrapRequest(nil, reqValue)
-	return newOpenDBRequest(upgradeCtx, req, upgrader), nil
+	return newOpenDBRequest(upgradeCtx, req, upgrader)
 }
 
 // DeleteDatabase requests the deletion of a database.
