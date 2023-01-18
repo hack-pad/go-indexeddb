@@ -17,7 +17,7 @@ lint-deps:
 .PHONY: lint
 lint: lint-deps
 	GOOS=js GOARCH=wasm "${GO_BIN}/golangci-lint" run
-	GOOS=js GOARCH=wasm "${GO_BIN}/jsguard" ./...
+	GOOS=js GOARCH=wasm "${GO_BIN}/jsguard" -test=false ./...
 
 .PHONY: test-deps
 test-deps:
