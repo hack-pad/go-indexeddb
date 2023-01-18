@@ -1,21 +1,25 @@
+//go:build js && wasm
 // +build js,wasm
 
+// Package jscache caches expensive JavaScript results, like string encoding
 package jscache
 
-import "syscall/js"
+import (
+	"github.com/hack-pad/safejs"
+)
 
 type cacher struct {
-	cache map[string]js.Value
+	cache map[string]safejs.Value
 }
 
-func (c *cacher) value(key string, valueFn func() interface{}) js.Value {
+func (c *cacher) value(key string, valueFn func() safejs.Value) safejs.Value {
 	if val, ok := c.cache[key]; ok {
 		return val
 	}
 	if c.cache == nil {
-		c.cache = make(map[string]js.Value)
+		c.cache = make(map[string]safejs.Value)
 	}
-	val := js.ValueOf(valueFn())
+	val := valueFn()
 	c.cache[key] = val
 	return val
 }

@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package idb
@@ -5,14 +6,22 @@ package idb
 import (
 	"syscall/js"
 
-	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
 	"github.com/hack-pad/go-indexeddb/idb/internal/jscache"
+	"github.com/hack-pad/safejs"
 )
 
 var (
-	jsObjectStore        = js.Global().Get("IDBObjectStore")
+	jsObjectStore        safejs.Value
 	cursorDirectionCache jscache.Strings
 )
+
+func init() {
+	var err error
+	jsObjectStore, err = safejs.Global().Get("IDBObjectStore")
+	if err != nil {
+		panic(err)
+	}
+}
 
 // CursorDirection is the direction of traversal of the cursor
 type CursorDirection int
@@ -54,18 +63,18 @@ func (d CursorDirection) String() string {
 	}
 }
 
-func (d CursorDirection) jsValue() js.Value {
+func (d CursorDirection) jsValue() safejs.Value {
 	return cursorDirectionCache.Value(d.String())
 }
 
 // Cursor represents a cursor for traversing or iterating over multiple records in a Database
 type Cursor struct {
 	txn      *Transaction
-	jsCursor js.Value
+	jsCursor safejs.Value
 	iterated bool // set to true when an iteration method is called, like Continue
 }
 
-func wrapCursor(txn *Transaction, jsCursor js.Value) *Cursor {
+func wrapCursor(txn *Transaction, jsCursor safejs.Value) *Cursor {
 	if txn == nil {
 		txn = (*Transaction)(nil)
 	}
@@ -77,84 +86,94 @@ func wrapCursor(txn *Transaction, jsCursor js.Value) *Cursor {
 
 // Source returns the ObjectStore or Index that the cursor is iterating
 func (c *Cursor) Source() (objectStore *ObjectStore, index *Index, err error) {
-	defer exception.Catch(&err)
-	jsSource := c.jsCursor.Get("source")
-	if jsSource.InstanceOf(jsObjectStore) {
+	jsSource, err := c.jsCursor.Get("source")
+	if err != nil {
+		return
+	}
+	if isInstance, _ := jsSource.InstanceOf(jsObjectStore); isInstance {
 		objectStore = wrapObjectStore(c.txn, jsSource)
-	} else if jsSource.InstanceOf(jsIDBIndex) {
+	} else if isInstance, _ := jsSource.InstanceOf(jsIDBIndex); isInstance {
 		index = wrapIndex(c.txn, jsSource)
 	}
 	return
 }
 
 // Direction returns the direction of traversal of the cursor
-func (c *Cursor) Direction() (_ CursorDirection, err error) {
-	defer exception.Catch(&err)
-	direction := c.jsCursor.Get("direction")
-	return parseCursorDirection(direction.String()), nil
+func (c *Cursor) Direction() (CursorDirection, error) {
+	direction, err := c.jsCursor.Get("direction")
+	if err != nil {
+		return 0, err
+	}
+	directionStr, err := direction.String()
+	return parseCursorDirection(directionStr), err
 }
 
 // Key returns the key for the record at the cursor's position. If the cursor is outside its range, this is set to undefined.
-func (c *Cursor) Key() (_ js.Value, err error) {
-	defer exception.Catch(&err)
-	return c.jsCursor.Get("key"), nil
+func (c *Cursor) Key() (js.Value, error) {
+	value, err := c.jsCursor.Get("key")
+	return safejs.Unsafe(value), err
 }
 
 // PrimaryKey returns the cursor's current effective primary key. If the cursor is currently being iterated or has iterated outside its range, this is set to undefined.
-func (c *Cursor) PrimaryKey() (_ js.Value, err error) {
-	defer exception.Catch(&err)
-	return c.jsCursor.Get("primaryKey"), nil
+func (c *Cursor) PrimaryKey() (js.Value, error) {
+	value, err := c.jsCursor.Get("primaryKey")
+	return safejs.Unsafe(value), err
 }
 
 // Request returns the Request that was used to obtain the cursor.
-func (c *Cursor) Request() (_ *Request, err error) {
-	defer exception.Catch(&err)
-	return wrapRequest(c.txn, c.jsCursor.Get("request")), nil
+func (c *Cursor) Request() (*Request, error) {
+	reqValue, err := c.jsCursor.Get("request")
+	if err != nil {
+		return nil, err
+	}
+	return wrapRequest(c.txn, reqValue), nil
 }
 
 // Advance sets the number of times a cursor should move its position forward.
-func (c *Cursor) Advance(count uint) (err error) {
-	defer exception.Catch(&err)
+func (c *Cursor) Advance(count uint) error {
 	c.iterated = true
-	c.jsCursor.Call("advance", count)
-	return nil
+	_, err := c.jsCursor.Call("advance", count)
+	return err
 }
 
 // Continue advances the cursor to the next position along its direction.
-func (c *Cursor) Continue() (err error) {
-	defer exception.Catch(&err)
+func (c *Cursor) Continue() error {
 	c.iterated = true
-	c.jsCursor.Call("continue")
-	return nil
+	_, err := c.jsCursor.Call("continue")
+	return err
 }
 
 // ContinueKey advances the cursor to the next position along its direction.
-func (c *Cursor) ContinueKey(key js.Value) (err error) {
-	defer exception.Catch(&err)
+func (c *Cursor) ContinueKey(key js.Value) error {
 	c.iterated = true
-	c.jsCursor.Call("continue", key)
-	return nil
+	_, err := c.jsCursor.Call("continue", key)
+	return err
 }
 
 // ContinuePrimaryKey sets the cursor to the given index key and primary key given as arguments. Returns an error if the source is not an index.
-func (c *Cursor) ContinuePrimaryKey(key, primaryKey js.Value) (err error) {
-	defer exception.Catch(&err)
+func (c *Cursor) ContinuePrimaryKey(key, primaryKey js.Value) error {
 	c.iterated = true
-	c.jsCursor.Call("continuePrimaryKey", key, primaryKey)
-	return nil
+	_, err := c.jsCursor.Call("continuePrimaryKey", key, primaryKey)
+	return err
 }
 
 // Delete returns an AckRequest, and, in a separate thread, deletes the record at the cursor's position, without changing the cursor's position. This can be used to delete specific records.
-func (c *Cursor) Delete() (_ *AckRequest, err error) {
-	defer exception.Catch(&err)
-	req := wrapRequest(c.txn, c.jsCursor.Call("delete"))
+func (c *Cursor) Delete() (*AckRequest, error) {
+	reqValue, err := c.jsCursor.Call("delete")
+	if err != nil {
+		return nil, err
+	}
+	req := wrapRequest(c.txn, reqValue)
 	return newAckRequest(req), nil
 }
 
 // Update returns a Request, and, in a separate thread, updates the value at the current position of the cursor in the object store. This can be used to update specific records.
-func (c *Cursor) Update(value js.Value) (_ *Request, err error) {
-	defer exception.Catch(&err)
-	return wrapRequest(c.txn, c.jsCursor.Call("update", value)), nil
+func (c *Cursor) Update(value js.Value) (*Request, error) {
+	reqValue, err := c.jsCursor.Call("update", value)
+	if err != nil {
+		return nil, err
+	}
+	return wrapRequest(c.txn, reqValue), nil
 }
 
 // CursorWithValue represents a cursor for traversing or iterating over multiple records in a database. It is the same as the Cursor, except that it includes the value property.
@@ -166,12 +185,12 @@ func newCursorWithValue(cursor *Cursor) *CursorWithValue {
 	return &CursorWithValue{cursor}
 }
 
-func wrapCursorWithValue(txn *Transaction, jsCursor js.Value) *CursorWithValue {
+func wrapCursorWithValue(txn *Transaction, jsCursor safejs.Value) *CursorWithValue {
 	return newCursorWithValue(wrapCursor(txn, jsCursor))
 }
 
 // Value returns the value of the current cursor
-func (c *CursorWithValue) Value() (_ js.Value, err error) {
-	defer exception.Catch(&err)
-	return c.jsCursor.Get("value"), nil
+func (c *CursorWithValue) Value() (js.Value, error) {
+	value, err := c.jsCursor.Get("value")
+	return safejs.Unsafe(value), err
 }

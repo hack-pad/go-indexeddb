@@ -1,3 +1,4 @@
+//go:build js && wasm
 // +build js,wasm
 
 package idb
@@ -7,16 +8,33 @@ import (
 	"errors"
 	"syscall/js"
 
-	"github.com/hack-pad/go-indexeddb/idb/internal/exception"
 	"github.com/hack-pad/go-indexeddb/idb/internal/jscache"
 	"github.com/hack-pad/go-indexeddb/idb/internal/promise"
+	"github.com/hack-pad/safejs"
 )
 
 var (
-	supportsTransactionCommit = js.Global().Get("IDBTransaction").Get("prototype").Get("commit").Truthy()
+	supportsTransactionCommit = checkSupportsTransactionCommit()
 
 	errNotInTransaction = errors.New("Not part of a transaction")
 )
+
+func checkSupportsTransactionCommit() bool {
+	idbTransaction, err := safejs.Global().Get("IDBTransaction")
+	if err != nil {
+		return false
+	}
+	prototype, err := idbTransaction.Get("prototype")
+	if err != nil {
+		return false
+	}
+	commit, err := prototype.Get("commit")
+	if err != nil {
+		return false
+	}
+	supported, err := commit.Truthy()
+	return supported && err == nil
+}
 
 var (
 	modeCache       jscache.Strings
@@ -51,7 +69,7 @@ func (m TransactionMode) String() string {
 	}
 }
 
-func (m TransactionMode) jsValue() js.Value {
+func (m TransactionMode) jsValue() safejs.Value {
 	return modeCache.Value(m.String())
 }
 
@@ -89,7 +107,7 @@ func (d TransactionDurability) String() string {
 	}
 }
 
-func (d TransactionDurability) jsValue() js.Value {
+func (d TransactionDurability) jsValue() safejs.Value {
 	return durabilityCache.Value(d.String())
 }
 
@@ -99,11 +117,11 @@ func (d TransactionDurability) jsValue() js.Value {
 // and you access an ObjectStore to make a request. You can also use a Transaction object to abort transactions.
 type Transaction struct {
 	db            *Database
-	jsTransaction js.Value
+	jsTransaction safejs.Value
 	objectStores  map[string]*ObjectStore
 }
 
-func wrapTransaction(db *Database, jsTransaction js.Value) *Transaction {
+func wrapTransaction(db *Database, jsTransaction safejs.Value) *Transaction {
 	return &Transaction{
 		db:            db,
 		jsTransaction: jsTransaction,
@@ -117,61 +135,79 @@ func (t *Transaction) Database() (*Database, error) {
 }
 
 // Durability returns the durability hint the transaction was created with.
-func (t *Transaction) Durability() (_ TransactionDurability, err error) {
-	defer exception.Catch(&err)
-	return parseDurability(t.jsTransaction.Get("durability").String()), nil
+func (t *Transaction) Durability() (TransactionDurability, error) {
+	durability, err := t.jsTransaction.Get("durability")
+	if err != nil {
+		return 0, err
+	}
+	durabilityString, err := durability.String()
+	if err != nil {
+		return 0, err
+	}
+	return parseDurability(durabilityString), nil
 }
 
 // Err returns an error indicating the type of error that occurred when there is an unsuccessful transaction. Returns nil if the transaction is not finished, is finished and successfully committed, or was aborted with Transaction.Abort().
-func (t *Transaction) Err() (err error) {
-	defer exception.Catch(&err)
-	jsErr := t.jsTransaction.Get("error")
-	if jsErr.Truthy() {
-		return js.Error{Value: jsErr}
+func (t *Transaction) Err() error {
+	jsErr, err := t.jsTransaction.Get("error")
+	if err != nil {
+		return err
 	}
-	return
-}
-
-// Abort rolls back all the changes to objects in the database associated with this transaction.
-func (t *Transaction) Abort() (err error) {
-	defer exception.Catch(&err)
-	t.jsTransaction.Call("abort")
+	if truthy, err := jsErr.Truthy(); err != nil {
+		return err
+	} else if truthy {
+		return js.Error{Value: safejs.Unsafe(jsErr)}
+	}
 	return nil
 }
 
+// Abort rolls back all the changes to objects in the database associated with this transaction.
+func (t *Transaction) Abort() error {
+	_, err := t.jsTransaction.Call("abort")
+	return err
+}
+
 // Mode returns the mode for isolating access to data in the object stores that are in the scope of the transaction. The default value is TransactionReadOnly.
-func (t *Transaction) Mode() (_ TransactionMode, err error) {
-	defer exception.Catch(&err)
-	return parseMode(t.jsTransaction.Get("mode").String()), nil
+func (t *Transaction) Mode() (TransactionMode, error) {
+	mode, err := t.jsTransaction.Get("mode")
+	if err != nil {
+		return 0, err
+	}
+	modeStr, err := mode.String()
+	return parseMode(modeStr), err
 }
 
 // ObjectStoreNames returns a list of the names of ObjectStores associated with the transaction.
-func (t *Transaction) ObjectStoreNames() (_ []string, err error) {
-	defer exception.Catch(&err)
-	return stringsFromArray(t.jsTransaction.Get("objectStoreNames"))
+func (t *Transaction) ObjectStoreNames() ([]string, error) {
+	objectStoreNames, err := t.jsTransaction.Get("objectStoreNames")
+	if err != nil {
+		return nil, err
+	}
+	return stringsFromArray(objectStoreNames)
 }
 
 // ObjectStore returns an ObjectStore representing an object store that is part of the scope of this transaction.
-func (t *Transaction) ObjectStore(name string) (_ *ObjectStore, err error) {
+func (t *Transaction) ObjectStore(name string) (*ObjectStore, error) {
 	if store, ok := t.objectStores[name]; ok {
 		return store, nil
 	}
-	defer exception.Catch(&err)
-	jsObjectStore := t.jsTransaction.Call("objectStore", name)
+	jsObjectStore, err := t.jsTransaction.Call("objectStore", name)
+	if err != nil {
+		return nil, err
+	}
 	store := wrapObjectStore(t, jsObjectStore)
 	t.objectStores[name] = store
 	return store, nil
 }
 
 // Commit for an active transaction, commits the transaction. Note that this doesn't normally have to be called — a transaction will automatically commit when all outstanding requests have been satisfied and no new requests have been made. Commit() can be used to start the commit process without waiting for events from outstanding requests to be dispatched.
-func (t *Transaction) Commit() (err error) {
+func (t *Transaction) Commit() error {
 	if !supportsTransactionCommit {
 		return nil
 	}
 
-	defer exception.Catch(&err)
-	t.jsTransaction.Call("commit")
-	return nil
+	_, err := t.jsTransaction.Call("commit")
+	return err
 }
 
 // Await waits for success or failure, then returns the results.
@@ -184,23 +220,39 @@ func (t *Transaction) prepareAwait(ctx context.Context) promise.Promise {
 	resolve, reject, prom := promise.NewChan(ctx)
 	ctx, cancel := context.WithCancel(ctx)
 
-	errFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	errFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
 		go reject(t.Err())
 		cancel()
 		return nil
 	})
-	completeFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	if err != nil {
+		reject(err)
+		return nil
+	}
+	completeFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
 		go resolve(nil)
 		cancel()
 		return nil
 	})
-	t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("error"), errFunc)
-	t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("complete"), completeFunc)
+	if err != nil {
+		reject(err)
+		return nil
+	}
+	_, err = t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("error"), errFunc)
+	if err != nil {
+		reject(err)
+		return nil
+	}
+	_, err = t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("complete"), completeFunc)
+	if err != nil {
+		reject(err)
+		return nil
+	}
 
 	go func() {
 		<-ctx.Done()
-		t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value("error"), errFunc)
-		t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value("complete"), completeFunc)
+		_, _ = t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value("error"), errFunc) // clean up on best-effort basis
+		_, _ = t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value("complete"), completeFunc)
 		errFunc.Release()
 		completeFunc.Release()
 	}()
