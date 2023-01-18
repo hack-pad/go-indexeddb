@@ -10,10 +10,14 @@ lint-deps:
 	@if ! which golangci-lint >/dev/null || [[ "$$(golangci-lint version 2>&1)" != *${LINT_VERSION}* ]]; then \
 		curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "${GO_BIN}" v${LINT_VERSION}; \
 	fi
+	@if ! which jsguard >/dev/null; then \
+		go install github.com/hack-pad/safejs/jsguard/cmd/jsguard; \
+	fi
 
 .PHONY: lint
 lint: lint-deps
 	GOOS=js GOARCH=wasm "${GO_BIN}/golangci-lint" run
+	GOOS=js GOARCH=wasm "${GO_BIN}/jsguard" ./...
 
 .PHONY: test-deps
 test-deps:
