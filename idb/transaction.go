@@ -9,7 +9,6 @@ import (
 	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/jscache"
-	"github.com/hack-pad/go-indexeddb/idb/internal/promise"
 	"github.com/hack-pad/safejs"
 )
 
@@ -212,49 +211,56 @@ func (t *Transaction) Commit() error {
 
 // Await waits for success or failure, then returns the results.
 func (t *Transaction) Await(ctx context.Context) error {
-	_, err := t.prepareAwait(ctx).Await()
-	return err
+	resolveCtx, cancel := context.WithCancel(ctx)
+
+	var rejectValue error
+	if err := t.addCancelingEventListener(resolveCtx, cancel, "abort", func() {
+		rejectValue = errors.New("transaction aborted")
+	}); err != nil {
+		return err
+	}
+
+	if err := t.addCancelingEventListener(resolveCtx, cancel, "complete", func() {}); err != nil {
+		return err
+	}
+
+	if err := t.addCancelingEventListener(resolveCtx, cancel, "error", func() {
+		rejectValue = t.Err()
+	}); err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-resolveCtx.Done():
+		return rejectValue
+	}
 }
 
-func (t *Transaction) prepareAwait(ctx context.Context) promise.Promise {
-	resolve, reject, prom := promise.NewChan(ctx)
-	ctx, cancel := context.WithCancel(ctx)
-
-	errFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
-		go reject(t.Err())
-		cancel()
+// addCancelingEventListener adds an event listener for fn() and cleans it up when the context is canceled.
+// The listener only runs if the context has not completed yet, then cancels it.
+func (t *Transaction) addCancelingEventListener(ctx context.Context, cancel context.CancelFunc, eventName string, fn func()) error {
+	jsFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
+		select {
+		case <-ctx.Done():
+		default:
+			fn()
+			cancel()
+		}
 		return nil
 	})
 	if err != nil {
-		reject(err)
-		return nil
+		return err
 	}
-	completeFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
-		go resolve(nil)
-		cancel()
-		return nil
-	})
+	_, err = t.jsTransaction.Call(addEventListener, t.db.callStrings.Value(eventName), jsFunc)
 	if err != nil {
-		reject(err)
-		return nil
+		return err
 	}
-	_, err = t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("error"), errFunc)
-	if err != nil {
-		reject(err)
-		return nil
-	}
-	_, err = t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("complete"), completeFunc)
-	if err != nil {
-		reject(err)
-		return nil
-	}
-
 	go func() {
 		<-ctx.Done()
-		_, _ = t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value("error"), errFunc) // clean up on best-effort basis
-		_, _ = t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value("complete"), completeFunc)
-		errFunc.Release()
-		completeFunc.Release()
+		_, _ = t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value(eventName), jsFunc) // clean up on best-effort basis
+		jsFunc.Release()
 	}()
-	return prom
+	return nil
 }
