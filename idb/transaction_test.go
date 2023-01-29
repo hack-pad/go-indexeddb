@@ -53,9 +53,13 @@ func TestTransactionAbortErr(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = store.AddKey(js.ValueOf("some id"), js.ValueOf(nil))
 	assert.NoError(t, err)
-	assert.NoError(t, txn.Abort())
-	assert.NoError(t, txn.Await(context.Background()))
 
+	resultErr := txn.listenFinished(context.Background())
+	assert.NoError(t, txn.Abort())
+	err = <-resultErr
+	if assert.Error(t, err) {
+		assert.Equal(t, "transaction aborted", err.Error())
+	}
 	err = txn.Err()
 	assert.NoError(t, err)
 }

@@ -9,7 +9,6 @@ import (
 	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/jscache"
-	"github.com/hack-pad/go-indexeddb/idb/internal/promise"
 	"github.com/hack-pad/safejs"
 )
 
@@ -212,49 +211,111 @@ func (t *Transaction) Commit() error {
 
 // Await waits for success or failure, then returns the results.
 func (t *Transaction) Await(ctx context.Context) error {
-	_, err := t.prepareAwait(ctx).Await()
-	return err
+	return <-t.listenFinished(ctx)
 }
 
-func (t *Transaction) prepareAwait(ctx context.Context) promise.Promise {
-	resolve, reject, prom := promise.NewChan(ctx)
-	ctx, cancel := context.WithCancel(ctx)
+// listenFinished listens to this transaction's completion events which eventually resolves with nil or an error.
+// Resolves with the first IDBRequest's error
+func (t *Transaction) listenFinished(ctx context.Context) <-chan error {
+	result := make(chan error, 1)
+	resolveCtx, cancel := context.WithCancel(ctx)
 
-	errFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
-		go reject(t.Err())
-		cancel()
-		return nil
-	})
-	if err != nil {
-		reject(err)
-		return nil
+	if err := t.addCancelingEventListener(resolveCtx, cancel, "abort", result, func(safejs.Value) error {
+		return t.Err() // catch abort errors not already caught by the error event handler, like QuotaExceededError
+	}); err != nil {
+		result <- err
+		return result
 	}
-	completeFunc, err := safejs.FuncOf(func(safejs.Value, []safejs.Value) interface{} {
-		go resolve(nil)
-		cancel()
-		return nil
-	})
-	if err != nil {
-		reject(err)
-		return nil
+
+	if err := t.addCancelingEventListener(resolveCtx, cancel, "complete", result, func(safejs.Value) error {
+		return nil // transaction was successful
+	}); err != nil {
+		result <- err
+		return result
 	}
-	_, err = t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("error"), errFunc)
-	if err != nil {
-		reject(err)
-		return nil
-	}
-	_, err = t.jsTransaction.Call(addEventListener, t.db.callStrings.Value("complete"), completeFunc)
-	if err != nil {
-		reject(err)
-		return nil
+
+	if err := t.addCancelingEventListener(resolveCtx, cancel, "error", result, func(event safejs.Value) error {
+		// Error event target is always an IDBRequest, which is guaranteed to be a DOMException with a 'name' property.
+		properties, err := jsGetNested(event, "target", "error", "name")
+		if err != nil {
+			return err
+		}
+		_, jsErr, jsName := properties[0], properties[1], properties[2]
+		name, err := jsName.String()
+		if err != nil {
+			return err
+		}
+		if name == "AbortError" {
+			// TODO make this error detectable with errors.Is(). possibly exposing them as DOMException read-only fields.
+			return errors.New("transaction aborted")
+		}
+		return js.Error{Value: safejs.Unsafe(jsErr)}
+	}); err != nil {
+		result <- err
+		return result
 	}
 
 	go func() {
-		<-ctx.Done()
-		_, _ = t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value("error"), errFunc) // clean up on best-effort basis
-		_, _ = t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value("complete"), completeFunc)
-		errFunc.Release()
-		completeFunc.Release()
+		select {
+		case <-ctx.Done():
+			result <- ctx.Err()
+		case <-resolveCtx.Done():
+		}
 	}()
-	return prom
+	return result
+}
+
+func jsGetNested(value safejs.Value, keys ...string) ([]safejs.Value, error) {
+	if len(keys) == 0 {
+		return []safejs.Value{value}, nil
+	}
+	nextValue, err := value.Get(keys[0])
+	if err != nil {
+		return nil, err
+	}
+	values, err := jsGetNested(nextValue, keys[1:]...)
+	if err != nil {
+		return nil, err
+	}
+	return append([]safejs.Value{nextValue}, values...), nil
+}
+
+// addCancelingEventListener adds an event listener for fn() and cleans it up when the context is canceled.
+// The listener only runs if the context has not completed yet, then cancels it.
+//
+// Sends fn's error return value to result.
+//
+// Effectively, this means multiple calls to addCancelingEventListener with the same ctx in a single-threaded environment results in exactly one running.
+func (t *Transaction) addCancelingEventListener(
+	ctx context.Context, cancel context.CancelFunc,
+	eventName string,
+	result chan<- error,
+	fn func(event safejs.Value) error,
+) error {
+	jsFunc, err := safejs.FuncOf(func(_ safejs.Value, args []safejs.Value) interface{} {
+		select {
+		case <-ctx.Done():
+		default:
+			var event safejs.Value
+			if len(args) > 0 {
+				event = args[0]
+			}
+			result <- fn(event)
+			cancel()
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	_, err = t.jsTransaction.Call(addEventListener, t.db.callStrings.Value(eventName), jsFunc)
+	if err != nil {
+		return err
+	}
+	go func() {
+		<-ctx.Done()
+		_, _ = t.jsTransaction.Call(removeEventListener, t.db.callStrings.Value(eventName), jsFunc) // clean up on best-effort basis
+		jsFunc.Release()
+	}()
+	return nil
 }
