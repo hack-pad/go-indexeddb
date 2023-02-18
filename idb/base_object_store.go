@@ -27,7 +27,7 @@ func wrapBaseObjectStore(txn *Transaction, jsObjectStore safejs.Value) *baseObje
 func (b *baseObjectStore) Count() (*UintRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("count")
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newUintRequest(req), nil
@@ -37,7 +37,7 @@ func (b *baseObjectStore) Count() (*UintRequest, error) {
 func (b *baseObjectStore) CountKey(key safejs.Value) (*UintRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("count", key)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newUintRequest(req), nil
@@ -47,7 +47,7 @@ func (b *baseObjectStore) CountKey(key safejs.Value) (*UintRequest, error) {
 func (b *baseObjectStore) CountRange(keyRange *KeyRange) (*UintRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("count", keyRange.jsKeyRange)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newUintRequest(req), nil
@@ -57,7 +57,7 @@ func (b *baseObjectStore) CountRange(keyRange *KeyRange) (*UintRequest, error) {
 func (b *baseObjectStore) GetAllKeys() (*ArrayRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("getAllKeys")
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newArrayRequest(req), nil
@@ -71,7 +71,7 @@ func (b *baseObjectStore) GetAllKeysRange(query *KeyRange, maxCount uint) (*Arra
 	}
 	reqValue, err := b.jsObjectStore.Call("getAllKeys", args...)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newArrayRequest(req), nil
@@ -81,7 +81,7 @@ func (b *baseObjectStore) GetAllKeysRange(query *KeyRange, maxCount uint) (*Arra
 func (b *baseObjectStore) Get(key safejs.Value) (*Request, error) {
 	reqValue, err := b.jsObjectStore.Call("get", key)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	return wrapRequest(b.txn, reqValue), nil
 }
@@ -90,7 +90,7 @@ func (b *baseObjectStore) Get(key safejs.Value) (*Request, error) {
 func (b *baseObjectStore) GetKey(value safejs.Value) (*Request, error) {
 	reqValue, err := b.jsObjectStore.Call("getKey", value)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	return wrapRequest(b.txn, reqValue), nil
 }
@@ -99,7 +99,7 @@ func (b *baseObjectStore) GetKey(value safejs.Value) (*Request, error) {
 func (b *baseObjectStore) OpenCursor(direction CursorDirection) (*CursorWithValueRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("openCursor", safejs.Null(), direction.jsValue())
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newCursorWithValueRequest(req), nil
@@ -109,7 +109,7 @@ func (b *baseObjectStore) OpenCursor(direction CursorDirection) (*CursorWithValu
 func (b *baseObjectStore) OpenCursorKey(key safejs.Value, direction CursorDirection) (*CursorWithValueRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("openCursor", key, direction.jsValue())
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newCursorWithValueRequest(req), nil
@@ -119,7 +119,7 @@ func (b *baseObjectStore) OpenCursorKey(key safejs.Value, direction CursorDirect
 func (b *baseObjectStore) OpenCursorRange(keyRange *KeyRange, direction CursorDirection) (*CursorWithValueRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("openCursor", keyRange.jsKeyRange, direction.jsValue())
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newCursorWithValueRequest(req), nil
@@ -129,7 +129,7 @@ func (b *baseObjectStore) OpenCursorRange(keyRange *KeyRange, direction CursorDi
 func (b *baseObjectStore) OpenKeyCursor(direction CursorDirection) (*CursorRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("openKeyCursor", safejs.Null(), direction.jsValue())
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newCursorRequest(req), nil
@@ -139,7 +139,7 @@ func (b *baseObjectStore) OpenKeyCursor(direction CursorDirection) (*CursorReque
 func (b *baseObjectStore) OpenKeyCursorKey(key safejs.Value, direction CursorDirection) (*CursorRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("openKeyCursor", key, direction.jsValue())
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newCursorRequest(req), nil
@@ -149,7 +149,7 @@ func (b *baseObjectStore) OpenKeyCursorKey(key safejs.Value, direction CursorDir
 func (b *baseObjectStore) OpenKeyCursorRange(keyRange *KeyRange, direction CursorDirection) (*CursorRequest, error) {
 	reqValue, err := b.jsObjectStore.Call("openKeyCursor", keyRange.jsKeyRange, direction.jsValue())
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(b.txn, reqValue)
 	return newCursorRequest(req), nil

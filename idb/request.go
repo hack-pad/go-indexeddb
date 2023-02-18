@@ -85,12 +85,7 @@ func (r *Request) Err() (err error) {
 	if err != nil {
 		return err
 	}
-	if truthy, err := jsErr.Truthy(); err != nil {
-		return err
-	} else if truthy {
-		return js.Error{Value: safejs.Unsafe(jsErr)}
-	}
-	return nil
+	return domExceptionAsError(jsErr)
 }
 
 func (r *Request) await(ctx context.Context) (result safejs.Value, awaitErr error) {
@@ -183,7 +178,7 @@ func (r *Request) listen(ctx context.Context, success, failed func()) error {
 		}
 		_, err = r.jsRequest.Call(addEventListener, "error", errFunc)
 		if err != nil {
-			panic(err)
+			return tryAsDOMException(err)
 		}
 		go func() {
 			<-ctx.Done()
@@ -206,7 +201,7 @@ func (r *Request) listen(ctx context.Context, success, failed func()) error {
 		}
 		_, err = r.jsRequest.Call(addEventListener, "success", successFunc)
 		if err != nil {
-			panic(err)
+			return tryAsDOMException(err)
 		}
 		go func() {
 			<-ctx.Done()

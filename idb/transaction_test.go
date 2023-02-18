@@ -81,9 +81,7 @@ func TestTransactionAbortErr(t *testing.T) {
 	resultErr := txn.listenFinished(context.Background())
 	assert.NoError(t, txn.Abort())
 	err = <-resultErr
-	if assert.Error(t, err) {
-		assert.Equal(t, "transaction aborted", err.Error())
-	}
+	assert.ErrorIs(t, ErrAborted, err)
 	err = txn.Err()
 	assert.NoError(t, err)
 }

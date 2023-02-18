@@ -6,7 +6,6 @@ package idb
 import (
 	"context"
 	"errors"
-	"syscall/js"
 
 	"github.com/hack-pad/go-indexeddb/idb/internal/jscache"
 	"github.com/hack-pad/safejs"
@@ -16,6 +15,10 @@ var (
 	supportsTransactionCommit = checkSupportsTransactionCommit()
 
 	errNotInTransaction = errors.New("Not part of a transaction")
+)
+
+var (
+	ErrAborted = DOMException{name: "AbortError"}
 )
 
 func checkSupportsTransactionCommit() bool {
@@ -152,18 +155,13 @@ func (t *Transaction) Err() error {
 	if err != nil {
 		return err
 	}
-	if truthy, err := jsErr.Truthy(); err != nil {
-		return err
-	} else if truthy {
-		return js.Error{Value: safejs.Unsafe(jsErr)}
-	}
-	return nil
+	return domExceptionAsError(jsErr)
 }
 
 // Abort rolls back all the changes to objects in the database associated with this transaction.
 func (t *Transaction) Abort() error {
 	_, err := t.jsTransaction.Call("abort")
-	return err
+	return tryAsDOMException(err)
 }
 
 // Mode returns the mode for isolating access to data in the object stores that are in the scope of the transaction. The default value is TransactionReadOnly.
@@ -192,7 +190,7 @@ func (t *Transaction) ObjectStore(name string) (*ObjectStore, error) {
 	}
 	jsObjectStore, err := t.jsTransaction.Call("objectStore", name)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	store := wrapObjectStore(t, jsObjectStore)
 	t.objectStores[name] = store
@@ -206,12 +204,13 @@ func (t *Transaction) Commit() error {
 	}
 
 	_, err := t.jsTransaction.Call("commit")
-	return err
+	return tryAsDOMException(err)
 }
 
 // Await waits for success or failure, then returns the results.
 func (t *Transaction) Await(ctx context.Context) error {
-	return <-t.listenFinished(ctx)
+	err := <-t.listenFinished(ctx)
+	return tryAsDOMException(err)
 }
 
 // listenFinished listens to this transaction's completion events which eventually resolves with nil or an error.
@@ -236,20 +235,11 @@ func (t *Transaction) listenFinished(ctx context.Context) <-chan error {
 
 	if err := t.addCancelingEventListener(resolveCtx, cancel, "error", result, func(event safejs.Value) error {
 		// Error event target is always an IDBRequest, which is guaranteed to be a DOMException with a 'name' property.
-		properties, err := jsGetNested(event, "target", "error", "name")
+		properties, err := jsGetNested(event, "target", "error")
 		if err != nil {
 			return err
 		}
-		_, jsErr, jsName := properties[0], properties[1], properties[2]
-		name, err := jsName.String()
-		if err != nil {
-			return err
-		}
-		if name == "AbortError" {
-			// TODO make this error detectable with errors.Is(). possibly exposing them as DOMException read-only fields.
-			return errors.New("transaction aborted")
-		}
-		return js.Error{Value: safejs.Unsafe(jsErr)}
+		return domExceptionAsError(properties[1])
 	}); err != nil {
 		result <- err
 		return result
@@ -310,7 +300,7 @@ func (t *Transaction) addCancelingEventListener(
 	}
 	_, err = t.jsTransaction.Call(addEventListener, t.db.callStrings.Value(eventName), jsFunc)
 	if err != nil {
-		return err
+		return tryAsDOMException(err)
 	}
 	go func() {
 		<-ctx.Done()
