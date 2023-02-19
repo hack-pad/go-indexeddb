@@ -81,7 +81,7 @@ func TestTransactionAbortErr(t *testing.T) {
 	resultErr := txn.listenFinished(context.Background())
 	assert.NoError(t, txn.Abort())
 	err = <-resultErr
-	assert.ErrorIs(t, ErrAborted, err)
+	assert.ErrorIs(t, err, NewDOMException("AbortError"))
 	err = txn.Err()
 	assert.NoError(t, err)
 }

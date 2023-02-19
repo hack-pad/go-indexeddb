@@ -17,10 +17,6 @@ var (
 	errNotInTransaction = errors.New("Not part of a transaction")
 )
 
-var (
-	ErrAborted = DOMException{name: "AbortError"}
-)
-
 func checkSupportsTransactionCommit() bool {
 	idbTransaction, err := safejs.Global().Get("IDBTransaction")
 	if err != nil {

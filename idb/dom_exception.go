@@ -9,11 +9,6 @@ import (
 	"github.com/hack-pad/safejs"
 )
 
-type DOMException struct {
-	name    string
-	message string
-}
-
 func tryAsDOMException(err error) error {
 	switch err := err.(type) {
 	case js.Error:
@@ -33,6 +28,17 @@ func domExceptionAsError(jsDOMException safejs.Value) error {
 		return err
 	}
 	return domException
+}
+
+type DOMException struct {
+	name    string
+	message string
+}
+
+// NewDOMException returns a new DOMException with the given name.
+// Only useful for errors.Is() comparisons with errors returned from idb.
+func NewDOMException(name string) DOMException {
+	return DOMException{name: name}
 }
 
 func parseJSDOMException(jsDOMException safejs.Value) (DOMException, error) {
@@ -59,6 +65,9 @@ func parseJSDOMException(jsDOMException safejs.Value) (DOMException, error) {
 }
 
 func (e DOMException) Error() string {
+	if e.message == "" {
+		return e.name
+	}
 	return e.name + ": " + e.message
 }
 
