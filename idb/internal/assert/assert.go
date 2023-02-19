@@ -43,6 +43,16 @@ func ErrorIs(tb testing.TB, err, target error) bool {
 	return true
 }
 
+// NotErrorIs asserts err does match target
+func NotErrorIs(tb testing.TB, err, target error) bool {
+	tb.Helper()
+	if errors.Is(err, target) {
+		tb.Error("Expected error not to match", target, ", got:", err)
+		return false
+	}
+	return true
+}
+
 // Zero asserts value is the zero value
 func Zero(tb testing.TB, value interface{}) bool {
 	tb.Helper()
