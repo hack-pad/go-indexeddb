@@ -30,6 +30,8 @@ func domExceptionAsError(jsDOMException safejs.Value) error {
 	return domException
 }
 
+// DOMException is a JavaScript DOMException with a standard name.
+// Use errors.Is() to compare by name.
 type DOMException struct {
 	name    string
 	message string
@@ -71,6 +73,7 @@ func (e DOMException) Error() string {
 	return e.name + ": " + e.message
 }
 
+// Is returns true target is a DOMException and matches this DOMException's name. Use 'errors.Is()' to call it.
 func (e DOMException) Is(target error) bool {
 	targetDOMException, ok := target.(DOMException)
 	return ok && targetDOMException.name == e.name
