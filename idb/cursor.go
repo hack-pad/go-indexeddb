@@ -133,35 +133,35 @@ func (c *Cursor) Request() (*Request, error) {
 func (c *Cursor) Advance(count uint) error {
 	c.iterated = true
 	_, err := c.jsCursor.Call("advance", count)
-	return err
+	return tryAsDOMException(err)
 }
 
 // Continue advances the cursor to the next position along its direction.
 func (c *Cursor) Continue() error {
 	c.iterated = true
 	_, err := c.jsCursor.Call("continue")
-	return err
+	return tryAsDOMException(err)
 }
 
 // ContinueKey advances the cursor to the next position along its direction.
 func (c *Cursor) ContinueKey(key js.Value) error {
 	c.iterated = true
 	_, err := c.jsCursor.Call("continue", key)
-	return err
+	return tryAsDOMException(err)
 }
 
 // ContinuePrimaryKey sets the cursor to the given index key and primary key given as arguments. Returns an error if the source is not an index.
 func (c *Cursor) ContinuePrimaryKey(key, primaryKey js.Value) error {
 	c.iterated = true
 	_, err := c.jsCursor.Call("continuePrimaryKey", key, primaryKey)
-	return err
+	return tryAsDOMException(err)
 }
 
 // Delete returns an AckRequest, and, in a separate thread, deletes the record at the cursor's position, without changing the cursor's position. This can be used to delete specific records.
 func (c *Cursor) Delete() (*AckRequest, error) {
 	reqValue, err := c.jsCursor.Call("delete")
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(c.txn, reqValue)
 	return newAckRequest(req), nil
@@ -171,7 +171,7 @@ func (c *Cursor) Delete() (*AckRequest, error) {
 func (c *Cursor) Update(value js.Value) (*Request, error) {
 	reqValue, err := c.jsCursor.Call("update", value)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	return wrapRequest(c.txn, reqValue), nil
 }

@@ -53,7 +53,7 @@ func (db *Database) CreateObjectStore(name string, options ObjectStoreOptions) (
 		"keyPath":       options.KeyPath,
 	})
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	return wrapObjectStore(nil, jsObjectStore), nil
 }
@@ -61,13 +61,13 @@ func (db *Database) CreateObjectStore(name string, options ObjectStoreOptions) (
 // DeleteObjectStore destroys the object store with the given name in the connected database, along with any indexes that reference it.
 func (db *Database) DeleteObjectStore(name string) error {
 	_, err := db.jsDB.Call("deleteObjectStore", name)
-	return err
+	return tryAsDOMException(err)
 }
 
 // Close closes the connection to a database.
 func (db *Database) Close() error {
 	_, err := db.jsDB.Call("close")
-	return err
+	return tryAsDOMException(err)
 }
 
 // Transaction returns a transaction object containing the Transaction.ObjectStore() method, which you can use to access your object store.
@@ -97,7 +97,7 @@ func (db *Database) TransactionWithOptions(options TransactionOptions, objectSto
 
 	jsTxn, err := db.jsDB.Call("transaction", args...)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	return wrapTransaction(db, jsTxn), nil
 }

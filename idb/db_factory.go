@@ -64,7 +64,7 @@ func (f *Factory) Open(upgradeCtx context.Context, name string, version uint, up
 	}
 	reqValue, err := f.jsFactory.Call("open", args...)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(nil, reqValue)
 	return newOpenDBRequest(upgradeCtx, req, upgrader)
@@ -74,7 +74,7 @@ func (f *Factory) Open(upgradeCtx context.Context, name string, version uint, up
 func (f *Factory) DeleteDatabase(name string) (*AckRequest, error) {
 	reqValue, err := f.jsFactory.Call("deleteDatabase", name)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(nil, reqValue)
 	return newAckRequest(req), nil
@@ -84,7 +84,7 @@ func (f *Factory) DeleteDatabase(name string) (*AckRequest, error) {
 func (f *Factory) CompareKeys(a, b js.Value) (int, error) {
 	compare, err := f.jsFactory.Call("cmp", a, b)
 	if err != nil {
-		return 0, err
+		return 0, tryAsDOMException(err)
 	}
 	return compare.Int()
 }

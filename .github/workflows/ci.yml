@@ -22,7 +22,7 @@ jobs:
       matrix:
         go:
           - 1.18.x
-          - ^1.18  # Latest version of Go
+          - 1.19.x
     name: Test with Go ${{ matrix.go }}
     steps:
     - uses: actions/checkout@v3

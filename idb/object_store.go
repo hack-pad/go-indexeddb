@@ -69,7 +69,7 @@ func (o *ObjectStore) AutoIncrement() (bool, error) {
 func (o *ObjectStore) Add(value js.Value) (*AckRequest, error) {
 	reqValue, err := o.base.jsObjectStore.Call("add", value)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(o.base.txn, reqValue)
 	return newAckRequest(req), nil
@@ -79,7 +79,7 @@ func (o *ObjectStore) Add(value js.Value) (*AckRequest, error) {
 func (o *ObjectStore) AddKey(key, value js.Value) (*AckRequest, error) {
 	reqValue, err := o.base.jsObjectStore.Call("add", value, key)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(o.base.txn, reqValue)
 	return newAckRequest(req), nil
@@ -89,7 +89,7 @@ func (o *ObjectStore) AddKey(key, value js.Value) (*AckRequest, error) {
 func (o *ObjectStore) Clear() (*AckRequest, error) {
 	reqValue, err := o.base.jsObjectStore.Call("clear")
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(o.base.txn, reqValue)
 	return newAckRequest(req), nil
@@ -117,7 +117,7 @@ func (o *ObjectStore) CreateIndex(name string, keyPath js.Value, options IndexOp
 		"multiEntry": options.MultiEntry,
 	})
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	return wrapIndex(o.base.txn, jsIndex), nil
 }
@@ -126,7 +126,7 @@ func (o *ObjectStore) CreateIndex(name string, keyPath js.Value, options IndexOp
 func (o *ObjectStore) Delete(key js.Value) (*AckRequest, error) {
 	reqValue, err := o.base.jsObjectStore.Call("delete", key)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	req := wrapRequest(o.base.txn, reqValue)
 	return newAckRequest(req), nil
@@ -135,7 +135,7 @@ func (o *ObjectStore) Delete(key js.Value) (*AckRequest, error) {
 // DeleteIndex destroys the specified index in the connected database, used during a version upgrade.
 func (o *ObjectStore) DeleteIndex(name string) error {
 	_, err := o.base.jsObjectStore.Call("deleteIndex", name)
-	return err
+	return tryAsDOMException(err)
 }
 
 // GetAllKeys returns an ArrayRequest that retrieves record keys for all objects in the object store.
@@ -162,7 +162,7 @@ func (o *ObjectStore) GetKey(value js.Value) (*Request, error) {
 func (o *ObjectStore) Index(name string) (*Index, error) {
 	jsIndex, err := o.base.jsObjectStore.Call("index", name)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	return wrapIndex(o.base.txn, jsIndex), nil
 }
@@ -171,7 +171,7 @@ func (o *ObjectStore) Index(name string) (*Index, error) {
 func (o *ObjectStore) Put(value js.Value) (*Request, error) {
 	reqValue, err := o.base.jsObjectStore.Call("put", value)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	return wrapRequest(o.base.txn, reqValue), nil
 }
@@ -180,7 +180,7 @@ func (o *ObjectStore) Put(value js.Value) (*Request, error) {
 func (o *ObjectStore) PutKey(key, value js.Value) (*Request, error) {
 	reqValue, err := o.base.jsObjectStore.Call("put", value, key)
 	if err != nil {
-		return nil, err
+		return nil, tryAsDOMException(err)
 	}
 	return wrapRequest(o.base.txn, reqValue), nil
 }

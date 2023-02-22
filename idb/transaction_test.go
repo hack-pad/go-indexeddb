@@ -27,18 +27,42 @@ func TestTransactionDatabase(t *testing.T) {
 
 func TestTransactionDurability(t *testing.T) {
 	t.Parallel()
+	const storeName = "mystore"
 	db := testDB(t, func(db *Database) {
-		_, err := db.CreateObjectStore("mystore", ObjectStoreOptions{})
+		_, err := db.CreateObjectStore(storeName, ObjectStoreOptions{})
 		assert.NoError(t, err)
 	})
-	txn, err := db.TransactionWithOptions(TransactionOptions{
-		Durability: DurabilityStrict,
-	}, "mystore")
-	assert.NoError(t, err)
 
-	durability, err := txn.Durability()
-	assert.NoError(t, err)
-	assert.Equal(t, DurabilityStrict, durability)
+	for _, tc := range []struct {
+		durability   TransactionDurability
+		expectString string
+	}{
+		{
+			durability:   DurabilityDefault,
+			expectString: "default",
+		},
+		{
+			durability:   DurabilityRelaxed,
+			expectString: "relaxed",
+		},
+		{
+			durability:   DurabilityStrict,
+			expectString: "strict",
+		},
+	} {
+		tc := tc // enable parallel sub-tests
+		t.Run(tc.durability.String(), func(t *testing.T) {
+			t.Parallel()
+			txn, err := db.TransactionWithOptions(TransactionOptions{
+				Durability: tc.durability,
+			}, storeName)
+			assert.NoError(t, err)
+			dur, err := txn.Durability()
+			assert.NoError(t, err)
+			assert.Equal(t, tc.durability, dur)
+			assert.Equal(t, tc.expectString, dur.String())
+		})
+	}
 }
 
 func TestTransactionAbortErr(t *testing.T) {
@@ -57,9 +81,7 @@ func TestTransactionAbortErr(t *testing.T) {
 	resultErr := txn.listenFinished(context.Background())
 	assert.NoError(t, txn.Abort())
 	err = <-resultErr
-	if assert.Error(t, err) {
-		assert.Equal(t, "transaction aborted", err.Error())
-	}
+	assert.ErrorIs(t, err, NewDOMException("AbortError"))
 	err = txn.Err()
 	assert.NoError(t, err)
 }

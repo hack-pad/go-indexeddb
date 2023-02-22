@@ -6,6 +6,7 @@ package assert
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -27,6 +28,26 @@ func NoError(tb testing.TB, err error) bool {
 	tb.Helper()
 	if err != nil {
 		tb.Errorf("Unexpected error: %+v", err)
+		return false
+	}
+	return true
+}
+
+// ErrorIs asserts err matches target
+func ErrorIs(tb testing.TB, err, target error) bool {
+	tb.Helper()
+	if !errors.Is(err, target) {
+		tb.Error("Expected error to match", target, ", got:", err)
+		return false
+	}
+	return true
+}
+
+// NotErrorIs asserts err does match target
+func NotErrorIs(tb testing.TB, err, target error) bool {
+	tb.Helper()
+	if errors.Is(err, target) {
+		tb.Error("Expected error not to match", target, ", got:", err)
 		return false
 	}
 	return true
