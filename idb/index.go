@@ -83,6 +83,21 @@ func (i *Index) CountRange(keyRange *KeyRange) (*UintRequest, error) {
 	return i.base.CountRange(keyRange)
 }
 
+// GetAll returns an ArrayRequest that retrieves all objects in the index.
+func (i *Index) GetAll() (*ArrayRequest, error) {
+	return i.base.GetAll()
+}
+
+// GetAllKey returns an ArrayRequest that retrieves all objects in the index matching the specified key.
+func (i *Index) GetAllKey(key js.Value) (*ArrayRequest, error) {
+	return i.base.GetAllKey(safejs.Safe(key))
+}
+
+// GetAllRange returns an ArrayRequest that retrieves objects in the index matching the specified query, up to maxCount. If query is nil, no key filter is applied (up to maxCount objects are returned). If maxCount is 0, all matching objects are retrieved.
+func (i *Index) GetAllRange(query *KeyRange, maxCount uint) (*ArrayRequest, error) {
+	return i.base.GetAllRange(query, maxCount)
+}
+
 // GetAllKeys returns an ArrayRequest that retrieves record keys for all objects in the index.
 func (i *Index) GetAllKeys() (*ArrayRequest, error) {
 	return i.base.GetAllKeys()

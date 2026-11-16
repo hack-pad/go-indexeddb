@@ -276,6 +276,72 @@ func TestObjectStoreGet(t *testing.T) {
 		expectResult interface{}
 	}{
 		{
+			name: "get all",
+			keys: map[string]interface{}{
+				"some id":       "some value",
+				"some other id": "some other value",
+			},
+			getFn: func(store *ObjectStore) (interface{}, error) {
+				return store.GetAll()
+			},
+			expectResult: []js.Value{js.ValueOf("some value"), js.ValueOf("some other value")},
+		},
+		{
+			name: "get all key",
+			keys: map[string]interface{}{
+				"some id":       "some value",
+				"some other id": "some other value",
+			},
+			getFn: func(store *ObjectStore) (interface{}, error) {
+				return store.GetAllKey(js.ValueOf("some other id"))
+			},
+			expectResult: []js.Value{js.ValueOf("some other value")},
+		},
+		{
+			name: "get all range",
+			keys: map[string]interface{}{
+				"a": "val a",
+				"b": "val b",
+				"c": "val c",
+			},
+			getFn: func(store *ObjectStore) (interface{}, error) {
+				keyRange, err := NewKeyRangeLowerBound(js.ValueOf("b"), false)
+				assert.NoError(t, err)
+				return store.GetAllRange(keyRange, 1)
+			},
+			expectResult: []js.Value{js.ValueOf("val b")},
+		},
+		{
+			name: "get all nil range with maxCount",
+			keys: map[string]interface{}{
+				"a": "val a",
+				"b": "val b",
+				"c": "val c",
+			},
+			getFn: func(store *ObjectStore) (interface{}, error) {
+				return store.GetAllRange(nil, 2)
+			},
+			expectResult: []js.Value{js.ValueOf("val a"), js.ValueOf("val b")},
+		},
+		{
+			name: "get all nil range unbounded",
+			keys: map[string]interface{}{
+				"some id":       "some value",
+				"some other id": "some other value",
+			},
+			getFn: func(store *ObjectStore) (interface{}, error) {
+				return store.GetAllRange(nil, 0)
+			},
+			expectResult: []js.Value{js.ValueOf("some value"), js.ValueOf("some other value")},
+		},
+		{
+			name: "get all empty store",
+			getFn: func(store *ObjectStore) (interface{}, error) {
+				return store.GetAll()
+			},
+			expectResult: []js.Value(nil),
+		},
+		{
 			name: "get all keys",
 			keys: map[string]interface{}{
 				"some id":       "some value",
