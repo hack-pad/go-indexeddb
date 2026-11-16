@@ -138,12 +138,27 @@ func (o *ObjectStore) DeleteIndex(name string) error {
 	return tryAsDOMException(err)
 }
 
+// GetAll returns an ArrayRequest that retrieves all objects in the object store.
+func (o *ObjectStore) GetAll() (*ArrayRequest, error) {
+	return o.base.GetAll()
+}
+
+// GetAllKey returns an ArrayRequest that retrieves all objects in the object store matching the specified key.
+func (o *ObjectStore) GetAllKey(key js.Value) (*ArrayRequest, error) {
+	return o.base.GetAllKey(safejs.Safe(key))
+}
+
+// GetAllRange returns an ArrayRequest that retrieves objects in the object store matching the specified query, up to maxCount. If query is nil, no key filter is applied (up to maxCount objects are returned). If maxCount is 0, all matching objects are retrieved.
+func (o *ObjectStore) GetAllRange(query *KeyRange, maxCount uint) (*ArrayRequest, error) {
+	return o.base.GetAllRange(query, maxCount)
+}
+
 // GetAllKeys returns an ArrayRequest that retrieves record keys for all objects in the object store.
 func (o *ObjectStore) GetAllKeys() (*ArrayRequest, error) {
 	return o.base.GetAllKeys()
 }
 
-// GetAllKeysRange returns an ArrayRequest that retrieves record keys for all objects in the object store matching the specified query. If maxCount is 0, retrieves all objects matching the query.
+// GetAllKeysRange returns an ArrayRequest that retrieves record keys for objects in the object store matching the specified query, up to maxCount. If query is nil, no key filter is applied (up to maxCount keys are returned). If maxCount is 0, all matching keys are retrieved.
 func (o *ObjectStore) GetAllKeysRange(query *KeyRange, maxCount uint) (*ArrayRequest, error) {
 	return o.base.GetAllKeysRange(query, maxCount)
 }

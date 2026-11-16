@@ -53,9 +53,33 @@ func (b *baseObjectStore) CountRange(keyRange *KeyRange) (*UintRequest, error) {
 	return newUintRequest(req), nil
 }
 
+// GetAll returns an ArrayRequest that retrieves all objects in the object store or index.
+func (b *baseObjectStore) GetAll() (*ArrayRequest, error) {
+	return b.callArrayRequest("getAll")
+}
+
+// GetAllKey returns an ArrayRequest that retrieves all objects in the object store or index matching the specified key.
+func (b *baseObjectStore) GetAllKey(key safejs.Value) (*ArrayRequest, error) {
+	return b.callArrayRequest("getAll", key)
+}
+
+// GetAllRange returns an ArrayRequest that retrieves objects in the object store or index matching the specified query, up to maxCount. If query is nil, no key filter is applied (up to maxCount objects are returned). If maxCount is 0, all matching objects are retrieved.
+func (b *baseObjectStore) GetAllRange(query *KeyRange, maxCount uint) (*ArrayRequest, error) {
+	return b.callArrayRequest("getAll", rangeQueryArgs(query, maxCount)...)
+}
+
 // GetAllKeys returns an ArrayRequest that retrieves record keys for all objects in the object store or index.
 func (b *baseObjectStore) GetAllKeys() (*ArrayRequest, error) {
-	reqValue, err := b.jsObjectStore.Call("getAllKeys")
+	return b.callArrayRequest("getAllKeys")
+}
+
+// GetAllKeysRange returns an ArrayRequest that retrieves record keys for objects in the object store or index matching the specified query, up to maxCount. If query is nil, no key filter is applied (up to maxCount keys are returned). If maxCount is 0, all matching keys are retrieved.
+func (b *baseObjectStore) GetAllKeysRange(query *KeyRange, maxCount uint) (*ArrayRequest, error) {
+	return b.callArrayRequest("getAllKeys", rangeQueryArgs(query, maxCount)...)
+}
+
+func (b *baseObjectStore) callArrayRequest(method string, args ...interface{}) (*ArrayRequest, error) {
+	reqValue, err := b.jsObjectStore.Call(method, args...)
 	if err != nil {
 		return nil, tryAsDOMException(err)
 	}
@@ -63,18 +87,17 @@ func (b *baseObjectStore) GetAllKeys() (*ArrayRequest, error) {
 	return newArrayRequest(req), nil
 }
 
-// GetAllKeysRange returns an ArrayRequest that retrieves record keys for all objects in the object store or index matching the specified query. If maxCount is 0, retrieves all objects matching the query.
-func (b *baseObjectStore) GetAllKeysRange(query *KeyRange, maxCount uint) (*ArrayRequest, error) {
-	args := []interface{}{query.jsKeyRange}
+func rangeQueryArgs(query *KeyRange, maxCount uint) []interface{} {
+	if query != nil {
+		if maxCount > 0 {
+			return []interface{}{query.jsKeyRange, maxCount}
+		}
+		return []interface{}{query.jsKeyRange}
+	}
 	if maxCount > 0 {
-		args = append(args, maxCount)
+		return []interface{}{safejs.Null(), maxCount}
 	}
-	reqValue, err := b.jsObjectStore.Call("getAllKeys", args...)
-	if err != nil {
-		return nil, tryAsDOMException(err)
-	}
-	req := wrapRequest(b.txn, reqValue)
-	return newArrayRequest(req), nil
+	return nil
 }
 
 // Get returns a Request, and, in a separate thread, returns the objects selected by the specified key. This is for retrieving specific records from an object store or index.
