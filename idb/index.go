@@ -88,7 +88,7 @@ func (i *Index) GetAllKeys() (*ArrayRequest, error) {
 	return i.base.GetAllKeys()
 }
 
-// GetAllKeysRange returns an ArrayRequest that retrieves record keys for all objects in the index matching the specified query. If maxCount is 0, retrieves all objects matching the query.
+// GetAllKeysRange returns an ArrayRequest that retrieves record keys for objects in the index matching the specified query, up to maxCount. If query is nil, no key filter is applied (up to maxCount keys are returned). If maxCount is 0, all matching keys are retrieved.
 func (i *Index) GetAllKeysRange(query *KeyRange, maxCount uint) (*ArrayRequest, error) {
 	return i.base.GetAllKeysRange(query, maxCount)
 }

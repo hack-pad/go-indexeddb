@@ -105,3 +105,52 @@ func TestListen(t *testing.T) {
 		return atomic.LoadInt64(&successCount) > 0
 	}, time.Second, 50*time.Millisecond)
 }
+
+func TestArrayRequestResult(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name         string
+		keys         []string
+		expectResult []js.Value
+	}{
+		{
+			name:         "empty array",
+			keys:         nil,
+			expectResult: []js.Value(nil),
+		},
+		{
+			name:         "populated array",
+			keys:         []string{"alpha", "beta", "gamma"},
+			expectResult: []js.Value{js.ValueOf("alpha"), js.ValueOf("beta"), js.ValueOf("gamma")},
+		},
+	} {
+		tc := tc // keep loop-local copy of test case for parallel runs
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			db := testDB(t, func(db *Database) {
+				_, err := db.CreateObjectStore("mystore", ObjectStoreOptions{})
+				assert.NoError(t, err)
+			})
+			txn, err := db.Transaction(TransactionReadWrite, "mystore")
+			assert.NoError(t, err)
+			store, err := txn.ObjectStore("mystore")
+			assert.NoError(t, err)
+			for _, key := range tc.keys {
+				_, err := store.AddKey(js.ValueOf(key), js.ValueOf(key))
+				assert.NoError(t, err)
+			}
+
+			req, err := store.GetAllKeys()
+			assert.NoError(t, err)
+
+			awaited, err := req.Await(context.Background())
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectResult, awaited)
+
+			result, err := req.Result()
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectResult, result)
+		})
+	}
+}

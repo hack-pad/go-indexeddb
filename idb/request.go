@@ -287,12 +287,7 @@ func (a *ArrayRequest) Result() ([]js.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	var values []js.Value
-	err = iterArray(result, func(i int, value safejs.Value) (bool, error) {
-		values = append(values, safejs.Unsafe(value))
-		return true, nil
-	})
-	return values, err
+	return arrayFromValue(result)
 }
 
 // Await waits for success or failure, then returns the results.
@@ -301,12 +296,26 @@ func (a *ArrayRequest) Await(ctx context.Context) ([]js.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	var values []js.Value
-	err = iterArray(result, func(i int, value safejs.Value) (bool, error) {
-		values = append(values, safejs.Unsafe(value))
-		return true, nil
-	})
-	return values, err
+	return arrayFromValue(result)
+}
+
+func arrayFromValue(result safejs.Value) ([]js.Value, error) {
+	length, err := result.Length()
+	if err != nil {
+		return nil, err
+	}
+	if length == 0 {
+		return nil, nil
+	}
+	values := make([]js.Value, length)
+	for i := 0; i < length; i++ {
+		val, err := result.Index(i)
+		if err != nil {
+			return nil, err
+		}
+		values[i] = safejs.Unsafe(val)
+	}
+	return values, nil
 }
 
 // AckRequest is a Request that doesn't retrieve a value, only used to detect errors.

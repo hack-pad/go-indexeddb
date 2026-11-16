@@ -300,6 +300,36 @@ func TestObjectStoreGet(t *testing.T) {
 			expectResult: []js.Value{js.ValueOf("some id")},
 		},
 		{
+			name: "get all keys nil range with maxCount",
+			keys: map[string]interface{}{
+				"a": "1",
+				"b": "2",
+				"c": "3",
+			},
+			getFn: func(store *ObjectStore) (interface{}, error) {
+				return store.GetAllKeysRange(nil, 2)
+			},
+			expectResult: []js.Value{js.ValueOf("a"), js.ValueOf("b")},
+		},
+		{
+			name: "get all keys nil range unbounded",
+			keys: map[string]interface{}{
+				"some id":       "some value",
+				"some other id": "some other value",
+			},
+			getFn: func(store *ObjectStore) (interface{}, error) {
+				return store.GetAllKeysRange(nil, 0)
+			},
+			expectResult: []js.Value{js.ValueOf("some id"), js.ValueOf("some other id")},
+		},
+		{
+			name: "get all keys empty store",
+			getFn: func(store *ObjectStore) (interface{}, error) {
+				return store.GetAllKeys()
+			},
+			expectResult: []js.Value(nil),
+		},
+		{
 			name: "get",
 			keys: map[string]interface{}{
 				"some id": "some value",
